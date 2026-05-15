@@ -1,162 +1,126 @@
-import { useEffect, useState } from 'react';
+import { usePlayerSync } from '../context/PlayerSyncContext';
 import { Link } from 'react-router-dom';
-import api from '../services/api';
-import toast from 'react-hot-toast';
-import socket from '../services/socket';
+import { motion } from 'framer-motion';
+import { FiActivity, FiUser, FiZap, FiArrowRight, FiAward } from 'react-icons/fi';
+import BackButton from '../components/Common/BackButton';
 
 const PlayerDashboardPage = () => {
-  const [notifications, setNotifications] = useState([]);
-  const [liveMatches, setLiveMatches] = useState([]);
-  const [schedule, setSchedule] = useState([]);
-  const [playerProfile, setPlayerProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { profile, matches, loading } = usePlayerSync();
 
   const getId = (row) => row?._id || row?.id;
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [notificationsRes, liveRes, schedulesRes] = await Promise.all([
-          api.get('/notifications'),
-          api.get('/matches/live'),
-          api.get('/schedules'),
-          api.get('/me/player-profile').catch(() => ({ data: null })),
-        ]);
-        setNotifications(Array.isArray(notificationsRes.data) ? notificationsRes.data : []);
-        setLiveMatches(Array.isArray(liveRes.data) ? liveRes.data : []);
-        const allSchedules = Array.isArray(schedulesRes.data) ? schedulesRes.data : [];
-        setSchedule(allSchedules.slice(0, 8));
-        setPlayerProfile(arguments[0]);
-      } catch (error) {
-        setNotifications([]);
-        setLiveMatches([]);
-        setSchedule([]);
-        setPlayerProfile(null);
-        toast.error(error.response?.data?.message || 'Failed to load player dashboard');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-
-    socket.connect();
-    const onGlobalNotification = (notification) => {
-      setNotifications((prev) => [notification, ...prev].slice(0, 20));
-    };
-    const onPlayerNotification = (notification) => {
-      setNotifications((prev) => [notification, ...prev].slice(0, 20));
-    };
-
-    socket.on('notification:global', onGlobalNotification);
-    socket.on('notification:players', onPlayerNotification);
-
-    return () => {
-      socket.off('notification:global', onGlobalNotification);
-      socket.off('notification:players', onPlayerNotification);
-    };
-  }, []);
+  if (loading) return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <section className="surface-panel">
-        <h2 className="text-2xl font-black text-white">Player Dashboard</h2>
-        <p className="mt-2 text-slate-300">Track live games, view scorecards, check schedules, and receive notifications.</p>
-      </section>
-
-      <section className="surface-panel">
-        <h3 className="font-semibold mb-3 text-white">My Player Identity</h3>
-        {playerProfile ? (
-          <div className="grid gap-2 md:grid-cols-3">
-            <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-3">
-              <p className="text-xs text-slate-400 uppercase">Player ID</p>
-              <p className="text-lg font-bold text-cyan-100">{playerProfile.playerId || 'Pending'}</p>
+    <div className="space-y-10 animate-slide-up">
+      <div className="flex justify-start">
+         <BackButton />
+      </div>
+      {/* Player Identity Header */}
+      <section className="surface-panel overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 z-0" />
+        <div className="relative z-10 p-8 flex flex-col md:flex-row md:items-center gap-8">
+           <div className="h-24 w-24 rounded-[32px] bg-white/5 border border-white/10 flex items-center justify-center text-4xl text-cyan-400 shadow-2xl">
+              {profile?.playerRole === 'batsman' ? '🏏' : profile?.playerRole === 'bowler' ? '⚾' : profile?.playerRole === 'wicket-keeper' ? '🧤' : <FiUser />}
+           </div>
+            <div className="flex-1">
+               <h2 className="text-4xl font-black text-white italic tracking-tighter">Athlete <span className="text-cyan-400">Profile</span></h2>
+               <div className="flex flex-wrap items-center gap-4 mt-2">
+                  <p className="px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 text-[10px] font-black uppercase tracking-widest border border-cyan-500/20">{profile?.playerRole || 'Awaiting Assignment'}</p>
+                  <div className="flex flex-col">
+                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">PID: {profile?.playerId}</p>
+                     <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest font-mono opacity-50">UID: {profile?.userId?._id || profile?.userId}</p>
+                  </div>
+               </div>
             </div>
-            <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-3">
-              <p className="text-xs text-slate-400 uppercase">Role</p>
-              <p className="text-lg font-bold text-white">{playerProfile.playerRole || 'all-rounder'}</p>
-            </div>
-            <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-3">
-              <p className="text-xs text-slate-400 uppercase">Availability</p>
-              <p className="text-lg font-bold text-emerald-100">{playerProfile.availabilityStatus || 'available'}</p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-slate-400">Player profile not found yet. Contact organizer/admin to create your profile.</p>
-        )}
-      </section>
-
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="surface-panel p-4">
-          <p className="text-slate-400 text-sm">Live Matches</p>
-          <p className="text-2xl font-bold text-red-300 mt-1">{liveMatches.length}</p>
-        </div>
-        <div className="surface-panel p-4">
-          <p className="text-slate-400 text-sm">Upcoming Fixtures</p>
-          <p className="text-2xl font-bold text-cyan-100 mt-1">{schedule.length}</p>
-        </div>
-        <div className="surface-panel p-4">
-          <p className="text-slate-400 text-sm">Notifications</p>
-          <p className="text-2xl font-bold text-emerald-100 mt-1">{notifications.length}</p>
-        </div>
-        <div className="surface-panel p-4">
-          <p className="text-slate-400 text-sm">Role</p>
-          <p className="text-2xl font-bold text-amber-100 mt-1">Player</p>
+           <div className="flex gap-4">
+               <div className="surface-panel !bg-white/5 px-6 py-4 text-center">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Matches Played</p>
+                  <p className="text-xl font-black text-white italic mt-1">{matches.length}</p>
+               </div>
+           </div>
         </div>
       </section>
 
-      <section className="surface-panel">
-        <h3 className="font-semibold mb-3 text-white">Quick Access</h3>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/dashboard/user?view=live" className="rounded-lg border px-3 py-2 text-sm border-cyan-300/40 bg-cyan-500/15 text-cyan-100">Live Dashboard</Link>
-          <Link to="/dashboard/user?view=fixtures" className="rounded-lg border px-3 py-2 text-sm border-emerald-300/40 bg-emerald-500/15 text-emerald-100">Fixtures Dashboard</Link>
-        </div>
-      </section>
+      <div className="grid gap-10 lg:grid-cols-12">
+        <div className="lg:col-span-8 space-y-8">
+           <div className="flex items-center justify-between">
+              <h3 className="text-xl font-black text-white italic flex items-center gap-3">
+                 <FiActivity className="text-cyan-400" /> Career Matches
+              </h3>
+              <span className="badge badge-indigo">{matches.length} Total</span>
+           </div>
 
-      <section className="surface-panel">
-        <h3 className="font-semibold mb-3 text-white">Live Matches</h3>
-        {loading ? <p className="text-sm text-slate-400">Loading live matches...</p> : null}
-        <div className="space-y-2">
-          {liveMatches.map((m) => (
-            <div key={getId(m)} className="rounded-xl border p-3 border-slate-700/60 bg-slate-900/50 flex items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-white">{m.matchNo || 'Live Match'}</p>
-                <p className="text-sm text-slate-300">{m.currentRuns || 0}/{m.currentWickets || 0} in {m.currentOver || 0}.{m.currentBall || 0}</p>
+           <div className="grid gap-6 sm:grid-cols-2">
+              {matches.map((m) => (
+                <Link key={getId(m)} to={`/scorecard/${getId(m)}`} className="surface-panel p-8 group border-white/5 hover:border-cyan-500/30 transition-all">
+                   <div className="flex justify-between items-center mb-6">
+                      <span className={`badge ${m.status === 'live' ? 'badge-live' : 'badge-indigo'}`}>{m.status}</span>
+                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">#{m.matchNo}</p>
+                   </div>
+                   
+                   <div className="flex justify-between items-center mb-8">
+                      <div className="text-center flex-1">
+                         <p className="text-2xl font-black text-white italic">{m.homeTeamId?.shortCode || 'HME'}</p>
+                      </div>
+                      <div className="px-4 text-slate-700 font-black italic text-sm">VS</div>
+                      <div className="text-center flex-1">
+                         <p className="text-2xl font-black text-white italic">{m.awayTeamId?.shortCode || 'AWY'}</p>
+                      </div>
+                   </div>
+
+                   <div className="flex justify-between items-center pt-6 border-t border-white/5">
+                      <p className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em]">View Statistics</p>
+                      <FiArrowRight className="text-cyan-400 group-hover:translate-x-1 transition-transform" />
+                   </div>
+                </Link>
+              ))}
+              {matches.length === 0 && (
+                <div className="sm:col-span-2 py-24 text-center surface-panel border-dashed opacity-50">
+                   <FiZap className="text-4xl text-slate-700 mx-auto mb-4" />
+                   <p className="text-xs font-black text-slate-600 uppercase tracking-[0.2em]">No official matches recorded in this circuit</p>
+                </div>
+              )}
+           </div>
+        </div>
+
+        <div className="lg:col-span-4 space-y-8">
+           <section className="surface-panel p-8 space-y-6">
+              <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
+                 <FiAward className="text-cyan-400" /> Stats Overview
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { label: 'Career Runs', value: profile?.careerRuns || '0' },
+                    { label: 'Wickets', value: profile?.careerWickets || '0' },
+                    { label: 'Strike Rate', value: Number(profile?.careerStrikeRate || 0).toFixed(1) },
+                    { label: 'Economy', value: Number(profile?.careerEconomy || 0).toFixed(2) },
+                    { label: 'Fours (4s)', value: profile?.fours || '0' },
+                    { label: 'Sixes (6s)', value: profile?.sixes || '0' },
+                    { label: 'Batting Avg', value: profile?.matchesPlayed > 0 ? (profile.careerRuns / profile.matchesPlayed).toFixed(2) : '0.00' },
+                    { label: 'Matches', value: profile?.matchesPlayed || '0' },
+                  ].map((stat, i) => (
+                     <div key={i} className="flex flex-col p-4 rounded-2xl bg-white/5 border border-white/5">
+                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{stat.label}</p>
+                        <p className="text-sm font-black text-white italic">{stat.value}</p>
+                     </div>
+                  ))}
               </div>
-              <Link to={`/scorecard/${getId(m)}`} className="rounded-md border px-3 py-1 text-sm border-cyan-300/40 bg-cyan-500/15 text-cyan-100">Scorecard</Link>
-            </div>
-          ))}
-          {!loading && liveMatches.length === 0 ? <p className="text-sm text-slate-400">No live matches right now.</p> : null}
-        </div>
-      </section>
+           </section>
 
-      <section className="surface-panel">
-        <h3 className="font-semibold mb-3 text-white">Upcoming Schedule</h3>
-        <div className="space-y-2">
-          {schedule.map((m) => (
-            <div key={getId(m)} className="rounded-xl border p-3 border-slate-700/60 bg-slate-900/50">
-              <p className="font-semibold text-white">{m.matchNo || `${m.homeTeamId || 'Team A'} vs ${m.awayTeamId || 'Team B'}`}</p>
-              <p className="text-sm text-slate-300">Status: {m.status || 'scheduled'}</p>
-              <p className="text-xs text-slate-400 mt-1">Scheduled: {m.scheduledAt ? new Date(m.scheduledAt).toLocaleString() : 'TBD'}</p>
-            </div>
-          ))}
-          {!loading && schedule.length === 0 ? <p className="text-sm text-slate-400">No scheduled matches available.</p> : null}
+           <section className="surface-panel p-8 bg-mesh border-cyan-500/20">
+              <div className="flex items-center gap-3 mb-4">
+                 <FiUser className="text-cyan-400" />
+                 <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Athlete Bio</p>
+              </div>
+              <p className="text-sm text-slate-300 font-medium leading-relaxed">Dedicated professional athlete participating in the regional cricket championship series.</p>
+           </section>
         </div>
-      </section>
-
-      <section className="surface-panel">
-        <h3 className="font-semibold mb-3 text-white">Notifications</h3>
-        <div className="space-y-2">
-          {notifications.map((n) => (
-            <div key={getId(n)} className="rounded-xl border p-3 border-slate-700/60 bg-slate-900/50">
-              <p className="font-semibold text-white">{n.title}</p>
-              <p className="text-sm text-slate-300">{n.message}</p>
-            </div>
-          ))}
-          {!loading && notifications.length === 0 ? <p className="text-sm text-slate-400">No notifications yet.</p> : null}
-        </div>
-      </section>
+      </div>
     </div>
   );
 };

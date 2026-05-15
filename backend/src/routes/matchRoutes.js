@@ -8,6 +8,7 @@ const {
   listComments,
   toggleLike,
   getPlayerProfile,
+  updateMatchStatus,
 } = require('../controllers/matchController');
 const { authenticate, authorize } = require('../middleware/auth');
 
@@ -20,7 +21,8 @@ router.get('/:matchId/comments', listComments);
 
 router.post('/:matchId/comments', authenticate, addComment);
 router.post('/:matchId/likes', authenticate, toggleLike);
-router.post('/:matchId/balls', authenticate, authorize('umpire'), addBallEvent);
-router.post('/:matchId/balls/:ballEventId/decisions', authenticate, authorize('umpire'), logUmpireDecision);
+router.post('/:matchId/balls', authenticate, authorize('umpire', 'organizer'), addBallEvent);
+router.post('/:matchId/balls/:ballEventId/decisions', authenticate, authorize('umpire', 'organizer'), logUmpireDecision);
+router.patch('/:matchId/status', authenticate, authorize('umpire', 'organizer'), updateMatchStatus);
 
 module.exports = router;

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import { FiMail, FiCheckCircle, FiSmartphone, FiShield } from 'react-icons/fi';
+import { FiMail, FiCheckCircle, FiShield } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { getDashboardRouteForAccountType } from '../../utils/authSession';
 
@@ -10,12 +10,10 @@ const VerifyOTP = () => {
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [otpMethod, setOtpMethod] = useState('email');
   const { verifyOTP, sendOTP } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const email = location.state?.email;
-  const phone = location.state?.phone;
   const expectedAccountType = location.state?.expectedAccountType || 'match-centre';
 
   const handleSubmit = async (e) => {
@@ -32,11 +30,6 @@ const VerifyOTP = () => {
     if (result.success) {
       toast.success('Account verified successfully!');
       const verifiedAccountType = result.user?.accountType || expectedAccountType;
-      if (expectedAccountType && verifiedAccountType !== expectedAccountType) {
-        toast.error('This verification belongs to a different account type');
-        setLoading(false);
-        return;
-      }
       navigate(getDashboardRouteForAccountType(verifiedAccountType), { replace: true });
     }
     setLoading(false);
@@ -44,10 +37,10 @@ const VerifyOTP = () => {
 
   const handleResendOTP = async () => {
     setResending(true);
-    const result = await sendOTP(email, otpMethod, phone, expectedAccountType);
+    const result = await sendOTP(email, 'email', null, expectedAccountType);
     if (result && result.success) {
       setOtp('');
-      toast.success(`OTP sent to your ${otpMethod === 'sms' ? 'phone' : 'email'}!`);
+      toast.success(`Verification code transmitted to ${email}`);
     }
     setResending(false);
   };
@@ -59,7 +52,7 @@ const VerifyOTP = () => {
         <motion.div
           animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
           transition={{ duration: 8, repeat: Infinity }}
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"
         />
       </div>
 
@@ -73,175 +66,94 @@ const VerifyOTP = () => {
         <div className="flex items-center justify-between">
           <Link
             to="/login"
-            className="group flex items-center gap-2 text-slate-400 hover:text-cricket-400 transition-colors"
+            className="group flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center group-hover:bg-blue-500/20 transition-all">
+            <div className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center group-hover:bg-emerald-500/20 transition-all">
               <span className="text-lg">←</span>
             </div>
-            <span className="font-medium">Back</span>
+            <span className="font-medium text-xs uppercase tracking-widest">Back to Login</span>
           </Link>
           
           <Link to="/" className="flex items-center gap-3">
-            <div className="relative">
-              <div className="absolute inset-0 bg-blue-500/30 rounded-xl blur-lg"></div>
-              <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 p-2 rounded-xl border border-blue-500/30">
-                <img src="/logo.png" alt="CREASE" className="w-8 h-8" />
-              </div>
-            </div>
-            <span className="text-xl font-black text-gradient-cricket">CREASE</span>
+             <div className="h-10 w-10 rounded-xl bg-emerald-500 flex items-center justify-center text-black font-black italic">C</div>
+             <span className="text-xl font-black italic text-white tracking-tighter">CREASE</span>
           </Link>
         </div>
 
         {/* Main Card */}
-        <div className="auth-panel p-8 overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full blur-3xl"></div>
-          
+        <div className="surface-panel p-10 overflow-hidden bg-mesh relative">
           <div className="relative z-10">
             {/* Title */}
-            <div className="text-center mb-8">
+            <div className="text-center mb-10">
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl mb-4 shadow-glow-md"
+                className="inline-flex items-center justify-center w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-[32px] mb-6"
               >
-                {otpMethod === 'sms' ? (
-                  <FiSmartphone className="text-3xl text-white" />
-                ) : (
-                  <FiMail className="text-3xl text-white" />
-                )}
+                <FiMail className="text-4xl text-emerald-500" />
               </motion.div>
-              <h2 className="mb-2 text-3xl font-black tracking-tight text-white">
-                Verify Your {otpMethod === 'sms' ? 'Phone' : 'Email'}
+              <h2 className="mb-3 text-3xl font-black tracking-tighter italic text-white uppercase">
+                Verify Identity
               </h2>
-              <p className="text-slate-400 font-medium">
-                We've sent a 6-digit code to
+              <p className="text-slate-500 text-sm font-medium">
+                Enter the 6-digit credential transmitted to
               </p>
-              <p className="text-cricket-400 font-bold mt-1">
-                {otpMethod === 'sms' && phone ? phone : email}
+              <p className="text-emerald-400 font-black mt-1 break-all">
+                {email}
               </p>
             </div>
 
-            {/* Method Toggle - Only if phone available */}
-            {phone && (
-              <div className="mb-6 flex gap-2 rounded-xl border border-white/10 bg-slate-900/60 p-1.5">
-                <button
-                  type="button"
-                  onClick={() => { setOtpMethod('email'); setOtp(''); }}
-                  className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                    otpMethod === 'email'
-                      ? 'bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-600 text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)]'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                  }`}
-                >
-                  <FiMail />
-                  Email
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setOtpMethod('sms'); setOtp(''); }}
-                  className={`flex-1 py-2.5 px-4 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                    otpMethod === 'sms'
-                      ? 'bg-gradient-to-r from-teal-500 via-cyan-500 to-sky-600 text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)]'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                  }`}
-                >
-                  <FiSmartphone />
-                  SMS
-                </button>
-              </div>
-            )}
-
             {/* OTP Form */}
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="space-y-8" onSubmit={handleSubmit}>
               {/* OTP Input */}
-              <div>
-                <label className="block text-sm font-bold text-slate-300 mb-3 text-center">
-                  Enter Verification Code
-                </label>
+              <div className="space-y-4">
                 <input
                   type="text"
                   required
-                  className="w-full bg-slate-900/50 border-2 border-slate-700 rounded-xl px-4 py-5 text-white text-4xl text-center tracking-[1em] font-black placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all tabular-nums"
-                  placeholder="••••••"
+                  autoFocus
+                  className="w-full bg-white/5 border border-white/5 rounded-[24px] px-4 py-6 text-white text-5xl text-center tracking-[0.5em] font-black placeholder-slate-800 focus:outline-none focus:border-emerald-500/50 transition-all tabular-nums shadow-inner"
+                  placeholder="000000"
                   value={otp}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '');
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
                     setOtp(value);
                   }}
                   maxLength={6}
                   autoComplete="off"
                 />
-                <div className="flex items-center justify-center gap-2 mt-3">
-                  <div className={`h-1.5 w-8 rounded-full transition-all ${otp.length >= 1 ? 'bg-blue-500' : 'bg-slate-700'}`}></div>
-                  <div className={`h-1.5 w-8 rounded-full transition-all ${otp.length >= 2 ? 'bg-blue-500' : 'bg-slate-700'}`}></div>
-                  <div className={`h-1.5 w-8 rounded-full transition-all ${otp.length >= 3 ? 'bg-blue-500' : 'bg-slate-700'}`}></div>
-                  <div className={`h-1.5 w-8 rounded-full transition-all ${otp.length >= 4 ? 'bg-blue-500' : 'bg-slate-700'}`}></div>
-                  <div className={`h-1.5 w-8 rounded-full transition-all ${otp.length >= 5 ? 'bg-blue-500' : 'bg-slate-700'}`}></div>
-                  <div className={`h-1.5 w-8 rounded-full transition-all ${otp.length >= 6 ? 'bg-blue-500' : 'bg-slate-700'}`}></div>
-                </div>
               </div>
 
               {/* Submit Button */}
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <button
                 type="submit"
                 disabled={loading || otp.length !== 6}
-                className="w-full btn-cricket flex items-center justify-center gap-2 py-4"
+                className="w-full btn-primary !py-5 shadow-emerald-900/20 disabled:opacity-50"
               >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                    <span>Verifying...</span>
-                  </>
-                ) : (
-                  <>
-                    <FiCheckCircle />
-                    <span>Verify & Continue</span>
-                  </>
-                )}
-              </motion.button>
+                {loading ? 'VERIFYING CREDENTIALS...' : 'AUTHORIZE ACCESS'}
+              </button>
             </form>
 
             {/* Resend Section */}
-            <div className="mt-6 text-center">
-              <p className="text-sm text-slate-400 mb-3">
-                Didn't receive the code?
+            <div className="mt-10 text-center">
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">
+                Didn't receive the transmission?
               </p>
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  type="button"
-                  onClick={handleResendOTP}
-                  disabled={resending}
-                  className="text-sm text-cricket-400 hover:text-cricket-300 font-bold transition-colors disabled:opacity-50"
-                >
-                  {resending ? 'Sending...' : `Resend ${otpMethod === 'sms' ? 'SMS' : 'Email'}`}
-                </button>
-                {phone && (
-                  <>
-                    <span className="text-slate-600">|</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOtpMethod(otpMethod === 'email' ? 'sms' : 'email');
-                        handleResendOTP();
-                      }}
-                      disabled={resending}
-                      className="text-sm text-slate-400 hover:text-white font-semibold transition-colors disabled:opacity-50"
-                    >
-                      Try {otpMethod === 'email' ? 'SMS' : 'Email'} instead
-                    </button>
-                  </>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={handleResendOTP}
+                disabled={resending}
+                className="text-xs text-emerald-500 hover:text-emerald-400 font-black uppercase tracking-widest transition-colors disabled:opacity-50"
+              >
+                {resending ? 'RE-TRANSMITTING...' : 'REQUEST NEW CODE'}
+              </button>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-slate-500">
-          Check your spam folder if you don't see the email
+        <p className="text-center text-[10px] font-black text-slate-600 uppercase tracking-widest">
+          Secure Multi-Factor Authentication Service
         </p>
       </motion.div>
     </div>

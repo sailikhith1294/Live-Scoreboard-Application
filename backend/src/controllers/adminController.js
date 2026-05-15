@@ -1,11 +1,15 @@
-const { User, PlayerProfile, Tournament, Notification, ActivityLog, MatchComment, logActivity } = require('../models');
+const { User, PlayerProfile, Tournament, Notification, ActivityLog, MatchComment, Match, BallEvent, TeamPlayer, PromotionRequest, MatchLike, Favorite, OtpCode, logActivity } = require('../models');
+
+const broadcastAdminUpdate = (req, type, data) => {
+  const io = req.app.get('io');
+  if (io) {
+    io.to('admin:global').emit('admin:update', { type, data });
+  }
+};
 
 const listUsers = async (req, res, next) => {
   try {
-    const users = await User.find({})
-      .populate('promotionRequest.decidedBy', 'fullName email')
-      .populate('promotionRequest.requestedBy', 'fullName email role')
-      .sort({ createdAt: -1 });
+    const users = await User.find({}).sort({ createdAt: -1 });
     res.json(users);
   } catch (error) {
     next(error);
@@ -29,6 +33,7 @@ const approveOrganizer = async (req, res, next) => {
     organizer.approvalStatus = status;
     await organizer.save();
     await logActivity(req.user.id, 'ADMIN_ORGANIZER_APPROVAL', { organizerId, status });
+    broadcastAdminUpdate(req, 'organizer_approved', organizer);
 
     return res.json(organizer);
   } catch (error) {
@@ -51,15 +56,7 @@ const updateUserRole = async (req, res, next) => {
     }
 
     user.role = role;
-    user.approvalStatus = role === 'organizer' ? 'approved' : 'approved';
-    user.promotionRequest = {
-      requestedRole: null,
-      message: null,
-      status: null,
-      requestedAt: null,
-      decidedAt: new Date(),
-      decidedBy: req.user.id,
-    };
+    user.approvalStatus = 'approved';
     await user.save();
 
     if (role === 'player') {
@@ -70,6 +67,7 @@ const updateUserRole = async (req, res, next) => {
     }
 
     await logActivity(req.user.id, 'ADMIN_UPDATE_USER_ROLE', { userId: user.id, role });
+    broadcastAdminUpdate(req, 'user_role_updated', user);
 
     return res.json(user);
   } catch (error) {
@@ -79,57 +77,36 @@ const updateUserRole = async (req, res, next) => {
 
 const decidePromotionRequest = async (req, res, next) => {
   try {
-    const { userId } = req.params;
-    const { decision, role } = req.body;
+    const { requestId } = req.params;
+    const { decision } = req.body; // 'approved' or 'rejected'
 
-    if (!['approved', 'rejected'].includes(String(decision || '').toLowerCase())) {
-      return res.status(400).json({ message: 'decision must be approved or rejected' });
-    }
+    const { PromotionRequest } = require('../models');
+    const request = await PromotionRequest.findById(requestId).populate('userId').populate('advisedBy', 'fullName');
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    if (request.status !== 'pending') return res.status(400).json({ message: 'Request already processed' });
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    if (!user.promotionRequest || user.promotionRequest.status !== 'pending') {
-      return res.status(400).json({ message: 'No pending promotion request for this user' });
-    }
-
-    const requestedRole = user.promotionRequest.requestedRole;
-
+    const user = request.userId;
     if (decision === 'approved') {
-      const targetRole = role || requestedRole;
-      if (!['organizer', 'player', 'umpire'].includes(targetRole)) {
-        return res.status(400).json({ message: 'Approved role must be organizer, player, or umpire' });
-      }
-
-      user.role = targetRole;
-      if (targetRole === 'organizer') {
-        user.approvalStatus = 'approved';
-      }
-      if (targetRole === 'player') {
+      user.role = request.requestedRole;
+      if (user.role === 'player') {
         const profile = await PlayerProfile.findOne({ userId: user.id });
-        if (!profile) {
-          await PlayerProfile.create({ userId: user.id, playerRole: 'all-rounder' });
-        }
+        if (!profile) await PlayerProfile.create({ userId: user.id, playerRole: 'all-rounder' });
       }
+      if (user.role === 'organizer') user.approvalStatus = 'approved';
+      await user.save();
     }
 
-    user.promotionRequest.status = decision;
-    user.promotionRequest.decidedAt = new Date();
-    user.promotionRequest.decidedBy = req.user.id;
-    await user.save();
+    request.status = decision;
+    request.handledAt = new Date();
+    request.handledBy = req.user.id;
+    await request.save();
 
-    await logActivity(req.user.id, 'ADMIN_DECIDE_PROMOTION_REQUEST', {
-      userId: user.id,
-      decision,
-      requestedRole,
-      appliedRole: user.role,
-    });
+    await logActivity(req.user.id, 'ADMIN_DECIDE_PROMOTION', { requestId, decision, userId: user.id });
+    broadcastAdminUpdate(req, 'promotion_handled', { requestId, decision });
 
-    return res.json(user);
+    res.json(request);
   } catch (error) {
-    return next(error);
+    next(error);
   }
 };
 
@@ -146,8 +123,78 @@ const createTournamentAsAdmin = async (req, res, next) => {
 
 const getAllTournaments = async (req, res, next) => {
   try {
-    const tournaments = await Tournament.find({}).sort({ createdAt: -1 });
+    const tournaments = await Tournament.find({})
+      .populate('organizerId', 'fullName email')
+      .sort({ createdAt: -1 });
     res.json(tournaments);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAllMatches = async (req, res, next) => {
+  try {
+    const matches = await Match.find({ 
+      source: { $nin: ['cricapi', 'api-sports'] } 
+    })
+      .populate({
+        path: 'tournamentId',
+        select: 'name',
+        populate: { path: 'organizerId', select: 'fullName' }
+      })
+      .populate('homeTeamId', 'name shortCode')
+      .populate('awayTeamId', 'name shortCode')
+      .populate('umpireId', 'fullName')
+      .sort({ scheduledAt: -1 });
+    res.json(matches);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteMatch = async (req, res, next) => {
+  try {
+    const { matchId } = req.params;
+    const match = await Match.findById(matchId);
+    if (!match) return res.status(404).json({ message: 'Match not found' });
+
+    // Purge associated data
+    const { Scorecard, BallEvent, UmpireDecision } = require('../models');
+    await Promise.all([
+      Scorecard.deleteMany({ matchId }),
+      BallEvent.deleteMany({ matchId }),
+      UmpireDecision.deleteMany({ matchId }),
+    ]);
+
+    await Match.deleteOne({ _id: matchId });
+    await logActivity(req.user.id, 'ADMIN_DELETE_MATCH', { matchId, matchNo: match.matchNo });
+    broadcastAdminUpdate(req, 'match_deleted', { matchId });
+
+    // Also broadcast to global feed to update everyone
+    const io = req.app.get('io');
+    if (io) io.emit('match:global_update', { type: 'match_deleted', matchId });
+
+    res.json({ message: 'Match and associated data purged', deleted: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteTournament = async (req, res, next) => {
+  try {
+    const { tournamentId } = req.params;
+    const tournament = await Tournament.findById(tournamentId);
+    if (!tournament) return res.status(404).json({ message: 'Tournament not found' });
+
+    // 1. Delete all matches associated with this tournament
+    await Match.deleteMany({ tournamentId });
+    // 2. Delete the tournament itself
+    await Tournament.deleteOne({ _id: tournamentId });
+
+    await logActivity(req.user.id, 'ADMIN_DELETE_TOURNAMENT', { tournamentId, name: tournament.name });
+    broadcastAdminUpdate(req, 'tournament_deleted', { tournamentId });
+
+    res.json({ message: 'Tournament and associated matches purged', deleted: true });
   } catch (error) {
     next(error);
   }
@@ -209,6 +256,138 @@ const moderateComment = async (req, res, next) => {
   }
 };
 
+const toggleUserStatus = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.role === 'admin') {
+      return res.status(403).json({ message: 'Admin accounts cannot be suspended' });
+    }
+
+    user.isActive = !user.isActive;
+    await user.save();
+
+    await logActivity(req.user.id, 'ADMIN_TOGGLE_USER_STATUS', { userId: user.id, isActive: user.isActive });
+    broadcastAdminUpdate(req, 'user_status_toggled', user);
+
+    res.json(user);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getDashboardStats = async (req, res, next) => {
+  try {
+    const [userCount, tournamentCount, matchCount, ballCount, organizerCount] = await Promise.all([
+      User.countDocuments({}),
+      Tournament.countDocuments({}),
+      Match.countDocuments({ source: { $nin: ['cricapi', 'api-sports'] } }),
+      BallEvent.countDocuments({}),
+      User.countDocuments({ role: 'organizer' }),
+    ]);
+
+    res.json({
+      users: userCount,
+      tournaments: tournamentCount,
+      matches: matchCount,
+      balls: ballCount,
+      organizers: organizerCount,
+      timestamp: new Date(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const finalizeTournament = async (req, res, next) => {
+  try {
+    const { tournamentId } = req.params;
+    const tournament = await Tournament.findById(tournamentId);
+    if (!tournament) return res.status(404).json({ message: 'Tournament not found' });
+
+    tournament.status = 'completed';
+    await tournament.save();
+    
+    await logActivity(req.user.id, 'ADMIN_FINALIZE_TOURNAMENT', { tournamentId });
+    broadcastAdminUpdate(req, 'tournament_finalized', tournament);
+    
+    res.json(tournament);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.role === 'admin') return res.status(403).json({ message: 'Cannot delete admin' });
+
+    // 1. Find PlayerProfile if it exists to clean up TeamPlayer associations
+    const playerProfile = await PlayerProfile.findOne({ userId });
+    
+    // 2. Prepare comprehensive cleanup tasks
+    const cleanupTasks = [
+      // Core Identity & Auth
+      User.deleteOne({ _id: userId }),
+      PromotionRequest.deleteMany({ userId }),
+      
+      // Social & Engagement
+      Notification.deleteMany({ userId }),
+      MatchComment.deleteMany({ userId }),
+      MatchLike.deleteMany({ userId }),
+      Favorite.deleteMany({ userId }),
+      
+      // Infrastructure references (nullify references to keep match history intact)
+      Match.updateMany({ umpireId: userId }, { $set: { umpireId: null } }),
+      Match.updateMany({ scorerId: userId }, { $set: { scorerId: null } }),
+    ];
+
+    // Clean up OTP codes linked to this user's identifiers (email/phone)
+    const otpFilter = [];
+    if (user.email) otpFilter.push({ email: user.email });
+    if (user.phone) otpFilter.push({ phone: user.phone });
+    if (otpFilter.length > 0) {
+      cleanupTasks.push(OtpCode.deleteMany({ $or: otpFilter }));
+    }
+
+    // Clean up Player specific data if applicable
+    if (playerProfile) {
+      cleanupTasks.push(PlayerProfile.deleteOne({ _id: playerProfile._id }));
+      cleanupTasks.push(TeamPlayer.deleteMany({ playerProfileId: playerProfile._id }));
+    }
+
+    // Execute all purge operations in parallel
+    const results = await Promise.all(cleanupTasks);
+    console.log(`[ADMIN_DEBUG] Purge complete for user ${userId}. Deletion results:`, results);
+
+    // Log the purge action
+    await logActivity(req.user.id, 'ADMIN_DELETE_USER', { userId: user.id, email: user.email });
+    broadcastAdminUpdate(req, 'user_deleted', { userId });
+    
+    res.json({ 
+      message: 'User and all associated data have been permanently purged', 
+      deleted: true 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const purgeActivityLogs = async (req, res, next) => {
+  try {
+    await ActivityLog.deleteMany({});
+    await logActivity(req.user.id, 'ADMIN_PURGE_LOGS', {});
+    broadcastAdminUpdate(req, 'logs_purged', {});
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   listUsers,
   approveOrganizer,
@@ -219,4 +398,12 @@ module.exports = {
   getSystemActivity,
   sendGlobalNotification,
   moderateComment,
+  toggleUserStatus,
+  getDashboardStats,
+  finalizeTournament,
+  deleteUser,
+  purgeActivityLogs,
+  deleteTournament,
+  getAllMatches,
+  deleteMatch,
 };

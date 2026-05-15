@@ -4,7 +4,7 @@ import api from '../services/api';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(localStorage.getItem('cto_token'));
+  const [token, setToken] = useState(sessionStorage.getItem('cto_token'));
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
         const { data } = await api.get('/auth/me');
         setUser(data);
       } catch (error) {
-        localStorage.removeItem('cto_token');
+        sessionStorage.removeItem('cto_token');
         setToken(null);
         setUser(null);
       } finally {
@@ -31,28 +31,38 @@ export const AuthProvider = ({ children }) => {
   }, [token]);
 
   const login = async (identifier, password) => {
-    const { data } = await api.post('/auth/login', { identifier, password });
-    localStorage.setItem('cto_token', data.token);
-    setToken(data.token);
-    setUser(data.user);
-    return data.user;
+    setLoading(true);
+    try {
+      const { data } = await api.post('/auth/login', { identifier, password });
+      sessionStorage.setItem('cto_token', data.token);
+      setToken(data.token);
+      setUser(data.user);
+      return data.user;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signup = async (payload) => {
-    const { data } = await api.post('/auth/signup', payload);
-    localStorage.setItem('cto_token', data.token);
-    setToken(data.token);
-    setUser(data.user);
-    return data.user;
+    setLoading(true);
+    try {
+      const { data } = await api.post('/auth/signup', payload);
+      sessionStorage.setItem('cto_token', data.token);
+      setToken(data.token);
+      setUser(data.user);
+      return data.user;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const requestSignupOtp = async ({ email, phone, channel }) => {
-    const { data } = await api.post('/auth/signup/otp/request', { email, phone, channel });
+  const requestSignupOtp = async ({ email }) => {
+    const { data } = await api.post('/auth/signup/otp/request', { email });
     return data;
   };
 
-  const verifySignupOtp = async ({ email, phone, channel, otp }) => {
-    const { data } = await api.post('/auth/signup/otp/verify', { email, phone, channel, otp });
+  const verifySignupOtp = async ({ email, otp }) => {
+    const { data } = await api.post('/auth/signup/otp/verify', { email, otp });
     return data;
   };
 
@@ -63,23 +73,27 @@ export const AuthProvider = ({ children }) => {
 
   const loginWithOtp = async ({ identifier, otp }) => {
     const { data } = await api.post('/auth/login/otp/verify', { identifier, otp });
-    localStorage.setItem('cto_token', data.token);
+    sessionStorage.setItem('cto_token', data.token);
     setToken(data.token);
     setUser(data.user);
     return data.user;
   };
 
   const logout = () => {
-    localStorage.removeItem('cto_token');
+    sessionStorage.removeItem('cto_token');
     setToken(null);
     setUser(null);
   };
 
   const primaryRole = (() => {
     const role = String(user?.role || 'viewer').toLowerCase();
-    if (role === 'viewer') return 'user';
+    // 'viewer' is the default role for registered users, which maps to the 'user' dashboard.
+    if (role === 'viewer' || role === 'user') return 'user';
     if (role === 'organizer') return 'organizer';
-    return role;
+    if (role === 'admin') return 'admin';
+    if (role === 'umpire') return 'umpire';
+    if (role === 'player') return 'player';
+    return 'user';
   })();
 
   // Permission system compatibility for legacy components.
@@ -90,7 +104,7 @@ export const AuthProvider = ({ children }) => {
       token,
       user,
       loading,
-      isAuthenticated: Boolean(token),
+      isAuthenticated: Boolean(token && user),
       primaryRole,
       canPermission,
       login,

@@ -1,86 +1,167 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useUmpireSync } from '../context/UmpireSyncContext';
+import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FiActivity, FiShield, FiZap, FiArrowRight, FiClock, FiCheckCircle, FiAlertCircle, FiUsers, FiTarget } from 'react-icons/fi';
+import BackButton from '../components/Common/BackButton';
 import api from '../services/api';
-import toast from 'react-hot-toast';
 
 const UmpireDashboardPage = () => {
-  const [matches, setMatches] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { matches, loading, refresh } = useUmpireSync();
+  const [selectedMatchId, setSelectedMatchId] = useState(null);
 
   const getId = (row) => row?._id || row?.id;
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const { data } = await api.get('/umpire/dashboard');
-        setMatches(Array.isArray(data?.matches) ? data.matches : []);
-      } catch (error) {
-        toast.error(error.response?.data?.message || 'Failed to load assigned matches');
-        setMatches([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const submitToss = async (matchId, tossWinnerTeamId, tossDecision) => {
+    try {
+      await api.patch(`/umpire/matches/${matchId}/toss`, { tossWinnerTeamId, tossDecision });
+      refresh();
+    } catch (err) { /* silent */ }
+  };
 
-    load();
-  }, []);
+  const startMatch = async (matchId) => {
+    try {
+      await api.patch(`/umpire/matches/${matchId}/start`);
+      refresh();
+    } catch (err) { /* silent */ }
+  };
+
+  if (loading) return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <section className="surface-panel">
-        <h2 className="text-2xl font-black text-white">Umpire Control Desk</h2>
-        <p className="mt-2 text-slate-300">Review assigned matches and open the live scoring console.</p>
-      </section>
-
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="surface-panel p-4">
-          <p className="text-slate-400 text-sm">Assigned Matches</p>
-          <p className="text-2xl font-bold text-white mt-1">{matches.length}</p>
-        </div>
-        <div className="surface-panel p-4">
-          <p className="text-slate-400 text-sm">Live Now</p>
-          <p className="text-2xl font-bold text-red-300 mt-1">{matches.filter((m) => m.status === 'live').length}</p>
-        </div>
-        <div className="surface-panel p-4">
-          <p className="text-slate-400 text-sm">Scheduled</p>
-          <p className="text-2xl font-bold text-cyan-100 mt-1">{matches.filter((m) => m.status === 'scheduled').length}</p>
-        </div>
-        <div className="surface-panel p-4">
-          <p className="text-slate-400 text-sm">Completed</p>
-          <p className="text-2xl font-bold text-emerald-100 mt-1">{matches.filter((m) => m.status === 'completed').length}</p>
-        </div>
-      </section>
-
-      <section className="surface-panel">
-        <h3 className="font-semibold mb-3 text-white">Assigned Matches</h3>
-        {loading ? <p className="text-sm text-slate-400">Loading matches...</p> : null}
-        <div className="space-y-3">
-          {matches.map((match) => {
-            const matchId = getId(match);
-            return (
-              <div key={matchId} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <p className="text-lg font-semibold text-white">{match.homeTeamId?.name || 'Home'} vs {match.awayTeamId?.name || 'Away'}</p>
-                    <p className="text-sm text-slate-400">{match.status || 'scheduled'} | {match.scheduledAt ? new Date(match.scheduledAt).toLocaleString() : 'No schedule set'}</p>
-                    <p className="text-xs text-slate-500 mt-1">{match.tournamentId?.name || 'Tournament'} • {match.venueId?.name || 'Venue TBD'}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Link className="rounded-lg border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-sm text-emerald-100" to={`/dashboard/umpire/scoring/${matchId}`}>
-                      Open Scoring
-                    </Link>
-                    <Link className="rounded-lg border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-sm text-slate-200" to={`/scorecard/${matchId}`}>
-                      View Scorecard
-                    </Link>
-                  </div>
-                </div>
+    <div className="space-y-10 animate-slide-up">
+      <div className="flex justify-start">
+         <BackButton />
+      </div>
+      {/* Official Header */}
+      <section className="surface-panel overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-emerald-500/10 z-0" />
+        <div className="relative z-10 p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+           <div>
+              <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase">Official <span className="text-emerald-500">Dashboard</span></h2>
+              <div className="flex flex-col gap-2 mt-2">
+                 <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Global Cricket Infrastructure • Active Duty Session</p>
+                 <div className="flex flex-wrap gap-4 mt-2">
+                    <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20 shadow-lg shadow-emerald-900/10 transition-all flex items-center gap-2">
+                       OFFICIAL STATUS: ACTIVE
+                    </p>
+                 </div>
               </div>
-            );
-          })}
-          {!loading && matches.length === 0 ? <p className="text-sm text-slate-400">No matches assigned yet.</p> : null}
+           </div>
+           <div className="flex items-center gap-4">
+              <div className="px-6 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-lg shadow-emerald-900/10">
+                 <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest text-center mb-1">Status</p>
+                 <p className="text-sm font-bold text-white uppercase italic tracking-tighter">Active Duty</p>
+              </div>
+           </div>
         </div>
       </section>
+
+      <div className="grid gap-10 lg:grid-cols-12">
+        <div className="lg:col-span-12 space-y-8">
+           <div className="flex items-center justify-between">
+              <h3 className="text-xl font-black text-white italic flex items-center gap-3 uppercase tracking-tighter">
+                 <FiActivity className="text-emerald-500" /> Assigned Match Protocol
+              </h3>
+              <span className="badge badge-emerald">{matches.length} Assignments</span>
+           </div>
+
+           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {matches.map((m) => (
+                <div 
+                  key={getId(m)} 
+                  className={`surface-panel p-8 group border-white/5 hover:border-emerald-500/30 transition-all flex flex-col h-full ${getId(m) === selectedMatchId ? 'border-emerald-500/50 bg-emerald-500/5 shadow-2xl shadow-emerald-900/20' : ''}`}
+                >
+                   <div className="flex justify-between items-center mb-6">
+                      <span className={`badge ${m.status === 'live' ? 'badge-live' : 'badge-emerald'}`}>{m.status}</span>
+
+                   </div>
+                   
+                   <div className="flex justify-between items-center mb-10">
+                      <div className="text-center flex-1">
+                         <p className="text-3xl font-black text-white italic">{m.homeTeamId?.shortCode || 'HME'}</p>
+                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{m.homeTeamId?.name}</p>
+                      </div>
+                      <div className="px-4 text-slate-800 font-black italic text-sm">VS</div>
+                      <div className="text-center flex-1">
+                         <p className="text-3xl font-black text-white italic">{m.awayTeamId?.shortCode || 'AWY'}</p>
+                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{m.awayTeamId?.name}</p>
+                      </div>
+                   </div>
+
+                   <div className="flex-1 space-y-6">
+                      {/* Toss Resolution Section */}
+                      <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
+                         <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                               <FiTarget className="text-amber-500" /> Toss Protocol
+                            </p>
+                            {m.tossWinnerTeamId && <FiCheckCircle className="text-emerald-500" />}
+                         </div>
+                         
+                         {m.tossWinnerTeamId ? (
+                             <p className="text-[10px] font-bold text-white italic leading-relaxed flex items-center gap-2">
+                                <span className="text-emerald-500 uppercase font-black">{m.tossWinnerTeamId?.name || 'Unknown'}</span> won the toss and elected to <span className="text-amber-500 uppercase font-black">{m.tossDecision}</span> first.
+                             </p>
+                         ) : (
+                            <div className="space-y-3">
+                               <div className="grid grid-cols-2 gap-2">
+                                   <button onClick={() => submitToss(getId(m), getId(m.homeTeamId), 'bat')} className="btn-secondary !py-3 !text-[7px] !bg-emerald-500/10 !text-emerald-500 border-emerald-500/20 hover:!bg-emerald-500 hover:!text-black uppercase">
+                                      {m.homeTeamId?.shortCode || 'HME'} WON <br/> <span className="opacity-50">Elected to Bat</span>
+                                   </button>
+                                   <button onClick={() => submitToss(getId(m), getId(m.homeTeamId), 'bowl')} className="btn-secondary !py-3 !text-[7px] !bg-emerald-500/10 !text-emerald-500 border-emerald-500/20 hover:!bg-emerald-500 hover:!text-black uppercase">
+                                      {m.homeTeamId?.shortCode || 'HME'} WON <br/> <span className="opacity-50">Elected to Bowl</span>
+                                   </button>
+                                   <button onClick={() => submitToss(getId(m), getId(m.awayTeamId), 'bat')} className="btn-secondary !py-3 !text-[7px] !bg-indigo-500/10 !text-indigo-500 border-indigo-500/20 hover:!bg-indigo-500 hover:!text-white uppercase">
+                                      {m.awayTeamId?.shortCode || 'AWY'} WON <br/> <span className="opacity-50">Elected to Bat</span>
+                                   </button>
+                                   <button onClick={() => submitToss(getId(m), getId(m.awayTeamId), 'bowl')} className="btn-secondary !py-3 !text-[7px] !bg-indigo-500/10 !text-indigo-500 border-indigo-500/20 hover:!bg-indigo-500 hover:!text-white uppercase">
+                                      {m.awayTeamId?.shortCode || 'AWY'} WON <br/> <span className="opacity-50">Elected to Bowl</span>
+                                   </button>
+                               </div>
+                            </div>
+                         )}
+                      </div>
+
+                      {/* Squad/Start Section */}
+                      {m.status === 'scheduled' && (
+                         <button 
+                           onClick={() => {
+                              if (!m.tossWinnerTeamId) return;
+                              startMatch(getId(m));
+                           }}
+                           className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3 ${m.tossWinnerTeamId ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20 hover:scale-[1.02]' : 'bg-white/5 text-slate-700 cursor-not-allowed border border-white/5'}`}
+                         >
+                            <FiZap /> Start Official Match
+                         </button>
+                      )}
+                   </div>
+
+                   <div className="mt-8 pt-8 border-t border-white/5 space-y-3">
+                      <Link to={`/dashboard/umpire/scoring/${getId(m)}`} className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-white/5 border border-white/5 text-emerald-400 font-black text-[10px] uppercase tracking-[0.2em] hover:bg-emerald-500 hover:text-black transition-all">
+                         <FiActivity className="text-lg" /> Launch Scoring Console
+                      </Link>
+                      <Link to={`/scorecard/${getId(m)}`} className="block w-full py-3 text-center text-[8px] font-black uppercase tracking-widest text-slate-600 hover:text-white transition-all">
+                         Public Match View
+                      </Link>
+                   </div>
+                </div>
+              ))}
+              {matches.length === 0 && (
+                <div className="md:col-span-2 lg:col-span-3 py-32 text-center surface-panel border-dashed opacity-40">
+                   <FiZap className="text-5xl text-slate-700 mx-auto mb-4" />
+                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">No official matches assigned to your ID</p>
+                </div>
+              )}
+           </div>
+        </div>
+      </div>
     </div>
   );
 };

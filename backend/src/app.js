@@ -30,6 +30,37 @@ const createServer = async () => {
   io.on('connection', (socket) => {
     socket.on('match:join', (matchId) => socket.join(`match:${matchId}`));
     socket.on('match:leave', (matchId) => socket.leave(`match:${matchId}`));
+    
+    // Organizer rooms
+    socket.on('organizer:join', (userId) => {
+      if (userId) socket.join(`organizer:${userId}`);
+      socket.join('organizer:global');
+    });
+    socket.on('organizer:leave', (userId) => {
+      if (userId) socket.leave(`organizer:${userId}`);
+      socket.leave('organizer:global');
+    });
+
+    socket.on('admin:join', () => {
+      socket.join('admin:global');
+    });
+    socket.on('admin:leave', () => {
+      socket.leave('admin:global');
+    });
+
+    socket.on('umpire:join', (userId) => {
+      if (userId) socket.join(`umpire:${userId}`);
+    });
+    socket.on('umpire:leave', (userId) => {
+      if (userId) socket.leave(`umpire:${userId}`);
+    });
+
+    socket.on('player:join', (userId) => {
+      if (userId) socket.join(`player:${userId}`);
+    });
+    socket.on('player:leave', (userId) => {
+      if (userId) socket.leave(`player:${userId}`);
+    });
   });
 
   app.set('io', io);
@@ -40,7 +71,7 @@ const createServer = async () => {
   app.use(morgan('dev'));
 
   app.get('/health', (req, res) => {
-    res.json({ message: 'Cricket Tournament Organizer API is running on MongoDB', timestamp: new Date().toISOString() });
+    res.json({ message: 'CREASE API - Global Cricket Infrastructure', timestamp: new Date().toISOString() });
   });
 
   app.use('/api/auth', authRoutes);
@@ -48,7 +79,8 @@ const createServer = async () => {
   app.use('/api/organizer', organizerRoutes);
   app.use('/api/umpire', umpireRoutes);
   app.use('/api/matches', matchRoutes);
-  app.use('/api', commonRoutes);
+  app.use('/api/common', commonRoutes); // Change /api to /api/common
+  app.use('/api', commonRoutes); // Keep /api for root routes like /schedules
 
   app.use(errorHandler);
 

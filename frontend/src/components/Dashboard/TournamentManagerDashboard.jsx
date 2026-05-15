@@ -38,8 +38,7 @@ const basePlayerForm = {
   teamId: '',
   playerName: '',
   role: 'BAT',
-  email: '',
-  phone: ''
+  email: ''
 };
 
 const statusOptions = ['draft', 'active', 'completed', 'cancelled'];
@@ -374,8 +373,7 @@ const TournamentManagerDashboard = () => {
       await tournamentAPI.addPlayerToTeam(playerForm.teamId, {
         playerName: playerForm.playerName,
         role: playerForm.role,
-        email: playerForm.email || undefined,
-        phone: playerForm.phone || undefined
+        email: playerForm.email || undefined
       });
       toast.success('Player added');
       setPlayerForm((prev) => ({ ...basePlayerForm, teamId: prev.teamId }));
@@ -670,7 +668,6 @@ const TournamentManagerDashboard = () => {
                 <input required value={playerForm.playerName} onChange={(e) => setPlayerForm((p) => ({ ...p, playerName: e.target.value }))} placeholder="Player name" className="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm" />
                 <select value={playerForm.role} onChange={(e) => setPlayerForm((p) => ({ ...p, role: e.target.value }))} className="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm"><option value="WK">WK</option><option value="BAT">BAT</option><option value="AR">AR</option><option value="BOWL">BOWL</option></select>
                 <input type="email" value={playerForm.email} onChange={(e) => setPlayerForm((p) => ({ ...p, email: e.target.value }))} placeholder="Email (optional)" className="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm" />
-                <input value={playerForm.phone} onChange={(e) => setPlayerForm((p) => ({ ...p, phone: e.target.value }))} placeholder="Phone (optional)" className="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm" />
                 <button type="submit" disabled={busy} className="w-full rounded-md border border-violet-300/40 bg-violet-500/16 px-3 py-2 text-sm font-semibold text-violet-100">Add Player</button>
               </form>
             </div>

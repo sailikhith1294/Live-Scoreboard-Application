@@ -1,8 +1,6 @@
 const nodemailer = require('nodemailer');
-const twilio = require('twilio');
 
 let transporter = null;
-let twilioClient = null;
 
 const getTransporter = () => {
   if (transporter) return transporter;
@@ -27,20 +25,6 @@ const getTransporter = () => {
   return transporter;
 };
 
-const getTwilioClient = () => {
-  if (twilioClient) return twilioClient;
-
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-
-  if (!accountSid || !authToken) {
-    throw new Error('Twilio is not configured for mobile OTP delivery');
-  }
-
-  twilioClient = twilio(accountSid, authToken);
-  return twilioClient;
-};
-
 const buildOtpMessage = ({ otp, purpose }) => {
   const action = purpose === 'login' ? 'login' : 'signup';
   return `Your CREASE ${action} OTP is ${otp}. It expires in ${process.env.OTP_EXPIRY_MINUTES || 10} minutes.`;
@@ -58,33 +42,19 @@ const sendEmailOtp = async ({ email, otp, purpose }) => {
   });
 };
 
-const sendMobileOtp = async ({ phone, otp, purpose }) => {
-  const client = getTwilioClient();
-  const from = process.env.TWILIO_PHONE_NUMBER;
-
-  if (!from) {
-    throw new Error('TWILIO_PHONE_NUMBER is not configured');
-  }
-
-  await client.messages.create({
-    from,
-    to: phone,
-    body: buildOtpMessage({ otp, purpose }),
-  });
-};
-
-const sendOtp = async ({ channel, email, phone, otp, purpose }) => {
-  if (channel === 'email') {
+const sendOtp = async ({ channel, email, otp, purpose }) => {
+  try {
     await sendEmailOtp({ email, otp, purpose });
-    return;
+    return { success: true, channel: 'email' };
+  } catch (err) {
+    console.warn(`OTP Delivery Failed: ${err.message}. FALLBACK: Logging to console.`);
+    console.log(`\n-----------------------------------------`);
+    console.log(`[DEV MODE] OTP FOR ${email}`);
+    console.log(`CODE: ${otp}`);
+    console.log(`PURPOSE: ${purpose.toUpperCase()}`);
+    console.log(`-----------------------------------------\n`);
+    return { success: true, channel: 'email', fallback: true, error: err.message };
   }
-
-  if (channel === 'mobile') {
-    await sendMobileOtp({ phone, otp, purpose });
-    return;
-  }
-
-  throw new Error('Unsupported OTP channel');
 };
 
 module.exports = { sendOtp };

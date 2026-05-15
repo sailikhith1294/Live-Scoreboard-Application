@@ -1,17 +1,41 @@
 import Navigation from './Navigation';
+import NotificationTicker from './NotificationTicker';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Layout = ({ children }) => {
   return (
-    <div className="app-shell">
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_10%_5%,rgba(34,211,238,0.12),transparent_35%),radial-gradient(circle_at_90%_12%,rgba(59,130,246,0.1),transparent_33%),radial-gradient(circle_at_50%_100%,rgba(16,185,129,0.08),transparent_38%)]" />
-      <Navigation />
-      <main className="main-shell">
-        <div className="page-shell app-canvas relative overflow-hidden">
-          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl" />
-          <div className="pointer-events-none absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl" />
-          {children}
-        </div>
-      </main>
+    <div className="relative min-h-screen bg-[#020617] text-white selection:bg-emerald-500/30 selection:text-emerald-400">
+      <NotificationTicker />
+      {/* Dynamic Background Elements */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-500/5 blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-500/5 blur-[120px]" />
+        <div className="absolute top-[20%] right-[10%] w-[20%] h-[20%] rounded-full bg-cyan-500/5 blur-[80px]" />
+      </div>
+
+      <div className="relative z-10 flex min-h-screen">
+        {/* Navigation - Sidebar or Floating Rail */}
+        <Navigation />
+
+        {/* Main Content Area */}
+        <main className="flex-1 px-4 py-6 sm:px-8 lg:px-12 lg:py-10 lg:ml-[280px]">
+          <div className="max-w-[1400px] mx-auto">
+             <AnimatePresence mode="wait">
+               <motion.div
+                 initial={{ opacity: 0, y: 15 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 exit={{ opacity: 0, y: -15 }}
+                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+               >
+                 {children}
+               </motion.div>
+             </AnimatePresence>
+          </div>
+        </main>
+      </div>
+      
+      {/* Footer Mobile Padding */}
+      <div className="h-20 lg:hidden" />
     </div>
   );
 };

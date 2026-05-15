@@ -7,6 +7,7 @@ const {
 	verifySignupOtp,
 	requestLoginOtp,
 	verifyLoginOtp,
+  changePassword,
 } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
 
@@ -19,5 +20,6 @@ router.post('/signup/otp/verify', verifySignupOtp);
 router.post('/login/otp/request', requestLoginOtp);
 router.post('/login/otp/verify', verifyLoginOtp);
 router.get('/me', authenticate, me);
+router.patch('/password', authenticate, changePassword);
 
 module.exports = router;

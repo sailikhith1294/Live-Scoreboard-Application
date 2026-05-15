@@ -7,25 +7,15 @@ const userSchema = new mongoose.Schema(
   {
     fullName: { type: String, required: true },
     email: { type: String, lowercase: true, trim: true, default: null },
-    phone: { type: String, trim: true, default: null },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: ['admin', 'organizer', 'player', 'viewer', 'umpire'], default: 'viewer' },
     approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
-    promotionRequest: {
-      requestedRole: { type: String, enum: ['organizer', 'player', 'umpire'], default: null },
-      message: { type: String, default: null },
-      status: { type: String, enum: ['pending', 'approved', 'rejected'], default: null },
-      requestedAt: { type: Date, default: null },
-      decidedAt: { type: Date, default: null },
-      decidedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-      requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    },
     isActive: { type: Boolean, default: true },
+    needsPasswordChange: { type: Boolean, default: false },
   },
   schemaOptions
 );
 userSchema.index({ email: 1 }, { unique: true, sparse: true });
-userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 
 const playerProfileSchema = new mongoose.Schema(
   {
@@ -37,14 +27,20 @@ const playerProfileSchema = new mongoose.Schema(
     },
     playerRole: {
       type: String,
-      enum: ['batsman', 'bowler', 'all-rounder', 'wicket-keeper'],
-      default: 'all-rounder',
+      enum: ['batsman', 'bowler', 'all-rounder', 'wicket-keeper', null],
+      default: null,
     },
     availabilityStatus: { type: String, enum: ['available', 'unavailable'], default: 'available' },
     careerRuns: { type: Number, default: 0 },
     careerWickets: { type: Number, default: 0 },
     careerStrikeRate: { type: Number, default: 0 },
     careerEconomy: { type: Number, default: 0 },
+    matchesPlayed: { type: Number, default: 0 },
+    totalBallsFaced: { type: Number, default: 0 },
+    totalBallsBowled: { type: Number, default: 0 },
+    runsConceded: { type: Number, default: 0 },
+    fours: { type: Number, default: 0 },
+    sixes: { type: Number, default: 0 },
   },
   schemaOptions
 );
@@ -59,6 +55,7 @@ const tournamentSchema = new mongoose.Schema(
     endDate: { type: String, required: true },
     status: { type: String, enum: ['draft', 'upcoming', 'live', 'completed'], default: 'draft' },
     rules: { type: Object, default: {} },
+    tournamentCode: { type: String, default: () => `TRN-${Math.floor(1000 + Math.random() * 9000)}` },
   },
   schemaOptions
 );
@@ -79,6 +76,8 @@ const teamSchema = new mongoose.Schema(
     name: { type: String, required: true },
     shortCode: { type: String, default: null },
     logoUrl: { type: String, default: null },
+    captainId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    inviteCode: { type: String, unique: true, default: () => Math.random().toString(36).substring(2, 10).toUpperCase() },
   },
   schemaOptions
 );
@@ -95,28 +94,45 @@ const teamPlayerSchema = new mongoose.Schema(
 
 const matchSchema = new mongoose.Schema(
   {
-    tournamentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', required: true },
-    homeTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
-    awayTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
+    tournamentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', default: null },
+    homeTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
+    awayTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
     venueId: { type: mongoose.Schema.Types.ObjectId, ref: 'Venue', default: null },
     umpireId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    legUmpireId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     scorerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     tossWinnerTeamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
     matchNo: { type: String, default: () => `M-${Math.floor(Math.random() * 99999)}` },
     scheduledAt: { type: Date, required: true },
-    status: { type: String, enum: ['scheduled', 'live', 'completed', 'abandoned'], default: 'scheduled' },
+    status: { type: String, enum: ['scheduled', 'live', 'completed', 'abandoned', 'delayed'], default: 'scheduled' },
     oversLimit: { type: Number, default: 20 },
     powerplayOvers: { type: Number, default: 6 },
     tossDecision: { type: String, enum: ['bat', 'bowl'], default: null },
+    homeSquad: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PlayerProfile' }],
+    awaySquad: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PlayerProfile' }],
     innings: { type: Number, default: 1 },
     currentRuns: { type: Number, default: 0 },
     currentWickets: { type: Number, default: 0 },
     currentOver: { type: Number, default: 0 },
     currentBall: { type: Number, default: 0 },
     commentaryEnabled: { type: Boolean, default: true },
+    externalId: { type: String },
+    source: { type: String, default: 'organized' },
+    team1Data: { type: Object, default: null }, // For API matches
+    team2Data: { type: Object, default: null }, // For API matches
+    scorecardData: { type: Object, default: null }, // Cached scorecard info
+    lastFetchedAt: { type: Date, default: Date.now },
+    venue: { type: String, default: null },
+    format: { type: String, default: null },
+    winnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
+    resultType: { type: String, enum: ['normal', 'tie', 'no_result', 'abandoned'], default: 'normal' },
+    activeStrikerData: { type: Object, default: null }, // { id, name, runs, balls }
+    activeNonStrikerData: { type: Object, default: null }, // { id, name, runs, balls }
+    activeBowlerData: { type: Object, default: null }, // { id, name, overs, runs, wickets }
   },
   schemaOptions
 );
+matchSchema.index({ externalId: 1 }, { unique: true, sparse: true });
 
 const scorecardSchema = new mongoose.Schema(
   {
@@ -251,6 +267,20 @@ const otpCodeSchema = new mongoose.Schema(
 otpCodeSchema.index({ purpose: 1, channel: 1, email: 1, phone: 1, createdAt: -1 });
 otpCodeSchema.index({ expiresAt: 1 });
 
+const promotionRequestSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    requestedRole: { type: String, enum: ['player', 'organizer', 'umpire'], required: true },
+    message: { type: String, default: null },
+    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    advisedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    requestedAt: { type: Date, default: Date.now },
+    handledAt: { type: Date, default: null },
+    handledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  },
+  schemaOptions
+);
+
 const User = mongoose.model('User', userSchema);
 const PlayerProfile = mongoose.model('PlayerProfile', playerProfileSchema);
 const Tournament = mongoose.model('Tournament', tournamentSchema);
@@ -268,6 +298,7 @@ const MatchLike = mongoose.model('MatchLike', matchLikeSchema);
 const Favorite = mongoose.model('Favorite', favoriteSchema);
 const ActivityLog = mongoose.model('ActivityLog', activityLogSchema);
 const OtpCode = mongoose.model('OtpCode', otpCodeSchema);
+const PromotionRequest = mongoose.model('PromotionRequest', promotionRequestSchema);
 
 const logActivity = async (userId, action, metadata = {}) => {
   await ActivityLog.create({ userId, action, metadata });
@@ -312,6 +343,7 @@ module.exports = {
   Favorite,
   ActivityLog,
   OtpCode,
+  PromotionRequest,
   logActivity,
   syncDatabase,
 };

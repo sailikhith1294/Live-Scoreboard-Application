@@ -3,7 +3,6 @@ const { User, logActivity } = require('../models');
 const { signToken } = require('../utils/jwt');
 const {
   normalizeEmail,
-  normalizePhone,
   createOtpCode,
   verifyOtpCode,
   consumeVerifiedOtpSession,
@@ -36,24 +35,23 @@ const buildAuthPayload = (user) => ({
     id: user.id,
     fullName: user.fullName,
     email: user.email,
-    phone: user.phone,
     role: user.role,
     approvalStatus: user.approvalStatus,
+    needsPasswordChange: user.needsPasswordChange,
   },
 });
 
 const signup = async (req, res, next) => {
   try {
-    const { fullName, email, phone, password, otpSessionId, otpChannel } = req.body;
+    const { fullName, email, password, otpSessionId } = req.body;
 
-    if (!fullName || !password || (!email && !phone)) {
-      return res.status(400).json({ message: 'fullName, password and (email or phone) are required' });
+    if (!fullName || !password || !email) {
+      return res.status(400).json({ message: 'fullName, password and email are required' });
     }
 
     const normalizedEmail = normalizeEmail(email);
-    const normalizedPhone = normalizePhone(phone);
+    const channel = 'email';
 
-    const channel = otpChannel || (normalizedEmail ? 'email' : 'mobile');
     if (!otpSessionId) {
       return res.status(400).json({ message: 'OTP verification is required before signup' });
     }
@@ -63,36 +61,31 @@ const signup = async (req, res, next) => {
       purpose: 'signup',
       channel,
       email: normalizedEmail,
-      phone: normalizedPhone,
     });
 
     if (!otpSession.ok) {
       return res.status(400).json({ message: 'OTP session is invalid or expired. Please verify OTP again.' });
     }
 
-    const existing = await User.findOne({
-      $or: [
-        ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
-        ...(normalizedPhone ? [{ phone: normalizedPhone }] : []),
-      ],
-    });
+    const existing = await User.findOne({ email: normalizedEmail });
 
     if (existing) {
-      return res.status(409).json({ message: 'User already exists with this email/phone' });
+      return res.status(409).json({ message: 'User already exists with this email' });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const role = resolveRoleFromEmail(normalizedEmail) || 'viewer';
 
     const user = await User.create({
       fullName,
       email: normalizedEmail,
-      phone: normalizedPhone,
       passwordHash,
-      role: 'viewer',
+      role,
       approvalStatus: 'approved',
     });
 
-    await logActivity(user.id, 'AUTH_SIGNUP', { role: 'viewer' });
+    console.log(`[AUTH_DEBUG] New signup: ${user.email}, Assigned Role: ${user.role}`);
+    await logActivity(user.id, 'AUTH_SIGNUP', { role });
 
     return res.status(201).json(buildAuthPayload(user));
   } catch (error) {
@@ -105,25 +98,27 @@ const login = async (req, res, next) => {
     const { identifier, password } = req.body;
 
     if (!identifier || !password) {
-      return res.status(400).json({ message: 'identifier and password are required' });
+      return res.status(400).json({ message: 'email and password are required' });
     }
 
-    const normalized = String(identifier).trim();
-    const user = await User.findOne({
-      $or: [{ email: normalized.toLowerCase() }, { phone: normalized }],
-    });
+    const normalized = String(identifier).trim().toLowerCase();
+    const user = await User.findOne({ email: normalized });
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(404).json({ message: 'No account found with this email' });
+    }
+
+    if (user.isActive === false) {
+      return res.status(403).json({ message: 'This account has been deactivated' });
     }
 
     if (!user.passwordHash) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Login via OTP instead (no password set)' });
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Incorrect password' });
     }
 
     const emailMappedRole = resolveRoleFromEmail(user.email);
@@ -136,7 +131,10 @@ const login = async (req, res, next) => {
     }
 
     if (user.role === 'organizer' && user.approvalStatus !== 'approved') {
-      return res.status(403).json({ message: `Organizer account is ${user.approvalStatus}` });
+      const statusMsg = user.approvalStatus === 'pending' 
+        ? 'Your organizer account is pending admin approval'
+        : `Your organizer account has been ${user.approvalStatus}`;
+      return res.status(403).json({ message: statusMsg });
     }
 
     await logActivity(user.id, 'AUTH_LOGIN', {});
@@ -152,40 +150,32 @@ const me = async (req, res) => {
     id: req.user.id,
     fullName: req.user.fullName,
     email: req.user.email,
-    phone: req.user.phone,
     role: req.user.role,
     approvalStatus: req.user.approvalStatus,
+    needsPasswordChange: req.user.needsPasswordChange,
   });
 };
-
-const getOtpChannelFromIdentifier = (identifier) =>
-  String(identifier || '').includes('@') ? 'email' : 'mobile';
 
 const requestSignupOtp = async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body.email);
-    const phone = normalizePhone(req.body.phone);
-    const channel = req.body.channel || (email ? 'email' : 'mobile');
+    const channel = 'email';
 
-    if (channel === 'email' && !email) {
-      return res.status(400).json({ message: 'Email is required for email OTP' });
-    }
-
-    if (channel === 'mobile' && !phone) {
-      return res.status(400).json({ message: 'Phone is required for mobile OTP' });
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required to receive OTP' });
     }
 
     const { otp } = await createOtpCode({
       purpose: 'signup',
       channel,
       email,
-      phone,
     });
 
-    await sendOtp({ channel, email, phone, otp, purpose: 'signup' });
+    const delivery = await sendOtp({ channel, email, otp, purpose: 'signup' });
 
     return res.json({
-      message: `OTP sent to your ${channel === 'email' ? 'email' : 'mobile number'}`,
+      message: `OTP sent to your email`,
+      fallback: delivery?.fallback || false,
     });
   } catch (error) {
     return res.status(502).json({ message: error.message || 'Failed to send OTP' });
@@ -195,8 +185,7 @@ const requestSignupOtp = async (req, res, next) => {
 const verifySignupOtp = async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body.email);
-    const phone = normalizePhone(req.body.phone);
-    const channel = req.body.channel || (email ? 'email' : 'mobile');
+    const channel = 'email';
     const otp = String(req.body.otp || '').trim();
 
     if (!otp) return res.status(400).json({ message: 'OTP is required' });
@@ -205,7 +194,6 @@ const verifySignupOtp = async (req, res, next) => {
       purpose: 'signup',
       channel,
       email,
-      phone,
       otp,
     });
 
@@ -228,29 +216,33 @@ const requestLoginOtp = async (req, res, next) => {
     const identifier = String(req.body.identifier || '').trim();
     if (!identifier) return res.status(400).json({ message: 'identifier is required' });
 
-    const channel = getOtpChannelFromIdentifier(identifier);
-    const email = channel === 'email' ? normalizeEmail(identifier) : null;
-    const phone = channel === 'mobile' ? normalizePhone(identifier) : null;
+    const user = await User.findOne({ email: normalizeEmail(identifier) });
 
-    const user = await User.findOne({
-      $or: [{ email }, { phone }],
-    });
-
+    console.log(`[AUTH_DEBUG] OTP Request for identifier: ${identifier}`);
     if (!user) {
-      return res.status(404).json({ message: 'No account found for this identifier' });
+      console.log(`[AUTH_DEBUG] No user found for OTP request: ${identifier}`);
+      return res.status(404).json({ message: 'No account found with this email' });
     }
+    console.log(`[AUTH_DEBUG] User found for OTP request: ${user.email} (ID: ${user._id})`);
+
+    if (!user.email) {
+      return res.status(400).json({ message: 'This account does not have a verified email for OTP' });
+    }
+
+    const channel = 'email';
+    const email = user.email;
 
     const { otp } = await createOtpCode({
       purpose: 'login',
       channel,
       email,
-      phone,
     });
 
-    await sendOtp({ channel, email, phone, otp, purpose: 'login' });
+    const delivery = await sendOtp({ channel, email, otp, purpose: 'login' });
 
     return res.json({
-      message: `OTP sent to your ${channel === 'email' ? 'email' : 'mobile number'}`,
+      message: 'OTP sent to your email',
+      fallback: delivery?.fallback || false,
     });
   } catch (error) {
     return res.status(502).json({ message: error.message || 'Failed to send OTP' });
@@ -262,31 +254,35 @@ const verifyLoginOtp = async (req, res, next) => {
     const identifier = String(req.body.identifier || '').trim();
     const otp = String(req.body.otp || '').trim();
     if (!identifier || !otp) {
-      return res.status(400).json({ message: 'identifier and otp are required' });
+      return res.status(400).json({ message: 'email and otp are required' });
     }
 
-    const channel = getOtpChannelFromIdentifier(identifier);
-    const email = channel === 'email' ? normalizeEmail(identifier) : null;
-    const phone = channel === 'mobile' ? normalizePhone(identifier) : null;
+    const user = await User.findOne({ email: normalizeEmail(identifier) });
+
+    console.log(`[AUTH_DEBUG] Login attempt for identifier: ${identifier}`);
+    if (!user) {
+      console.log(`[AUTH_DEBUG] User NOT found in database for identifier: ${identifier}`);
+      return res.status(404).json({ message: 'User not found' });
+    }
+    console.log(`[AUTH_DEBUG] User found: ${user.email} (ID: ${user._id}, Role: ${user.role})`);
+
+    if (user.isActive === false) {
+      return res.status(403).json({ message: 'This account has been deactivated' });
+    }
+
+    const channel = 'email';
+    const email = user.email;
 
     const result = await verifyOtpCode({
       purpose: 'login',
       channel,
       email,
-      phone,
       otp,
     });
 
     if (!result.ok) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
-    }
-
-    const user = await User.findOne({
-      $or: [{ email }, { phone }],
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found for OTP session' });
+      const msg = result.reason === 'OTP_EXPIRED' ? 'The verification code has expired' : 'Incorrect verification code';
+      return res.status(400).json({ message: msg });
     }
 
     const emailMappedRole = resolveRoleFromEmail(user.email);
@@ -297,7 +293,10 @@ const verifyLoginOtp = async (req, res, next) => {
     }
 
     if (user.role === 'organizer' && user.approvalStatus !== 'approved') {
-      return res.status(403).json({ message: `Organizer account is ${user.approvalStatus}` });
+      const statusMsg = user.approvalStatus === 'pending' 
+        ? 'Your organizer account is pending admin approval'
+        : `Your organizer account has been ${user.approvalStatus}`;
+      return res.status(403).json({ message: statusMsg });
     }
 
     await consumeVerifiedOtpSession({
@@ -305,7 +304,6 @@ const verifyLoginOtp = async (req, res, next) => {
       purpose: 'login',
       channel,
       email,
-      phone,
     });
 
     await logActivity(user.id, 'AUTH_LOGIN_OTP', { channel });
@@ -313,6 +311,27 @@ const verifyLoginOtp = async (req, res, next) => {
     return res.json(buildAuthPayload(user));
   } catch (error) {
     return next(error);
+  }
+};
+
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+    
+    if (user.passwordHash && !user.needsPasswordChange) {
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!valid) return res.status(401).json({ message: 'Current password incorrect' });
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.needsPasswordChange = false;
+    await user.save();
+    
+    await logActivity(user.id, 'AUTH_CHANGE_PASSWORD', {});
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -324,4 +343,5 @@ module.exports = {
   verifySignupOtp,
   requestLoginOtp,
   verifyLoginOtp,
+  changePassword,
 };

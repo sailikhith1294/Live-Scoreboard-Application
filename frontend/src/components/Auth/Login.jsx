@@ -77,7 +77,6 @@ const Login = ({ forcedAccountType = null }) => {
         navigate('/verify-otp', { 
           state: { 
             email: result.email || formData.email,
-            phone: result.phone,
             expectedAccountType: resolvedAccountType
           } 
         });
@@ -204,7 +203,7 @@ const Login = ({ forcedAccountType = null }) => {
               {/* Email Input */}
               <div>
                 <label className="block text-sm font-bold text-slate-300 mb-2">
-                  Email or Username
+                  Email
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -212,11 +211,11 @@ const Login = ({ forcedAccountType = null }) => {
                   </div>
                   <input
                     name="email"
-                    type="text"
-                    autoComplete="username"
+                    type="email"
+                    autoComplete="email"
                     required
                     className="input-pro pl-12"
-                    placeholder="Enter your email or username"
+                    placeholder="Enter your email"
                     value={formData.email}
                     onChange={handleChange}
                   />

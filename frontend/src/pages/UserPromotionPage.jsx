@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FiShield, FiSend, FiClock, FiCheckCircle, FiInfo } from 'react-icons/fi';
 
 const UserPromotionPage = () => {
   const [loading, setLoading] = useState(true);
@@ -20,15 +22,13 @@ const UserPromotionPage = () => {
     }
   };
 
-  useEffect(() => {
-    loadRequest();
-  }, []);
+  useEffect(() => { loadRequest(); }, []);
 
   const submitRequest = async (e) => {
     e.preventDefault();
     try {
       await api.post('/me/promotion-request', form);
-      toast.success('Promotion request sent to admin');
+      toast.success('Promotion request transmitted to headquarters');
       await loadRequest();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to send request');
@@ -37,52 +37,107 @@ const UserPromotionPage = () => {
 
   const request = requestState.promotionRequest;
 
+  if (loading) return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
-      <section className="surface-panel">
-        <h2 className="text-2xl font-black text-white">Promotion Request</h2>
-        <p className="mt-2 text-slate-300">Contact admin for role promotion to Organizer, Umpire, or Player.</p>
+    <div className="space-y-10 animate-slide-up">
+      <section className="surface-panel overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent z-0" />
+        <div className="relative z-10 p-8">
+           <h2 className="text-4xl font-black text-white italic tracking-tighter">Access <span className="text-indigo-400">Upgrade</span></h2>
+           <p className="mt-2 text-slate-400 font-medium">Elevate your account permissions to Umpire, Organizer, or Professional Player.</p>
+        </div>
       </section>
 
-      <section className="surface-panel p-4">
-        <h3 className="text-white font-semibold mb-3">Current Status</h3>
-        {loading ? <p className="text-sm text-slate-400">Loading status...</p> : null}
-        {!loading && !request ? (
-          <p className="text-sm text-slate-300">No promotion request submitted yet.</p>
-        ) : null}
-        {!loading && request ? (
-          <div className="rounded-xl border border-slate-700/60 bg-slate-900/50 p-3 text-sm">
-            <p className="text-white">Requested Role: {request.requestedRole}</p>
-            <p className="text-slate-300 mt-1">Status: {request.status}</p>
-            <p className="text-slate-400 mt-1">Requested At: {request.requestedAt ? new Date(request.requestedAt).toLocaleString() : 'N/A'}</p>
-            <p className="text-slate-400 mt-1">Message: {request.message || 'No message'}</p>
-          </div>
-        ) : null}
-      </section>
+      <div className="grid gap-10 lg:grid-cols-12">
+        {/* Status Tracker */}
+        <div className="lg:col-span-5 space-y-6">
+           <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] flex items-center gap-3">
+              <FiClock className="text-indigo-400" /> Application Status
+           </h3>
+           
+           <AnimatePresence mode="wait">
+              {request ? (
+                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="surface-panel p-8 border-indigo-500/20 bg-indigo-500/5">
+                    <div className="flex justify-between items-start mb-8">
+                       <span className={`badge ${request.status === 'pending' ? 'badge-amber' : request.status === 'approved' ? 'badge-emerald' : 'badge-rose'}`}>
+                          {request.status.toUpperCase()}
+                       </span>
+                       <FiShield className="text-3xl text-indigo-500/30" />
+                    </div>
+                    
+                    <div className="space-y-4">
+                       <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500">
+                          <span>Target Role</span>
+                          <span className="text-white italic">{request.requestedRole}</span>
+                       </div>
+                       <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-500">
+                          <span>Submitted</span>
+                          <span className="text-slate-300">{new Date(request.requestedAt).toLocaleDateString()}</span>
+                       </div>
+                       <div className="pt-4 border-t border-white/5">
+                          <p className="text-[10px] font-black uppercase text-slate-600 mb-2">Message to Admin</p>
+                          <p className="text-sm text-slate-400 italic">"{request.message || 'Standard promotion request'}"</p>
+                       </div>
+                    </div>
+                 </motion.div>
+              ) : (
+                 <div className="surface-panel p-16 text-center border-dashed border-2 opacity-50">
+                    <FiInfo className="text-4xl text-slate-700 mx-auto mb-4" />
+                    <p className="text-xs font-black text-slate-600 uppercase tracking-widest italic">No active applications found.</p>
+                 </div>
+              )}
+           </AnimatePresence>
+        </div>
 
-      <section className="surface-panel p-4">
-        <h3 className="text-white font-semibold mb-3">Send Request to Admin</h3>
-        <form className="grid gap-3" onSubmit={submitRequest}>
-          <select
-            value={form.requestedRole}
-            onChange={(e) => setForm((prev) => ({ ...prev, requestedRole: e.target.value }))}
-            className="rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
-          >
-            <option value="player">Player</option>
-            <option value="organizer">Organizer</option>
-            <option value="umpire">Umpire</option>
-          </select>
-          <textarea
-            value={form.message}
-            onChange={(e) => setForm((prev) => ({ ...prev, message: e.target.value }))}
-            placeholder="Tell admin why you need this role"
-            className="rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white min-h-28"
-          />
-          <button className="rounded-lg border px-3 py-2 text-sm font-semibold border-cyan-300/40 bg-cyan-500/15 text-cyan-100" type="submit">
-            Send Promotion Request
-          </button>
-        </form>
-      </section>
+        {/* Application Form */}
+        <div className="lg:col-span-7 space-y-6">
+           <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] flex items-center gap-3">
+              <FiSend className="text-emerald-400" /> New Application
+           </h3>
+
+           <form onSubmit={submitRequest} className="surface-panel p-8 bg-mesh border-emerald-500/20 space-y-8">
+              <div className="space-y-4">
+                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Desired Operational Role</label>
+                 <div className="grid grid-cols-3 gap-3">
+                    {['player', 'umpire', 'organizer'].map(r => (
+                       <button 
+                         key={r}
+                         type="button"
+                         onClick={() => setForm({...form, requestedRole: r})}
+                         className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${form.requestedRole === r ? 'bg-emerald-500 text-black border-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-white/5 text-slate-500 border-white/5 hover:border-white/10'}`}
+                       >
+                          {r}
+                       </button>
+                    ))}
+                 </div>
+              </div>
+
+              <div className="space-y-4">
+                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Justification Message</label>
+                 <textarea 
+                   required
+                   className="input-field min-h-[150px] !py-5"
+                   placeholder="Briefly explain your experience and why you require this access..."
+                   value={form.message}
+                   onChange={e => setForm({...form, message: e.target.value})}
+                 />
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={request?.status === 'pending'}
+                className="w-full btn-primary !py-5 !bg-indigo-600 hover:!bg-indigo-500 shadow-indigo-900/30 disabled:opacity-50"
+              >
+                 {request?.status === 'pending' ? 'APPLICATION UNDER REVIEW' : 'TRANSMIT UPGRADE REQUEST'}
+              </button>
+           </form>
+        </div>
+      </div>
     </div>
   );
 };

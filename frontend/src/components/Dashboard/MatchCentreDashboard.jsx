@@ -12,73 +12,59 @@ import toast from 'react-hot-toast';
 const MatchCentreDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [liveMatches, setLiveMatches] = useState([
-    {
-      id: 1,
-      name: 'Team A vs Team B',
-      format: 'ODI',
-      status: 'Live',
-      venue: 'Cricket Ground 1',
-      date: new Date(),
-      teamA: { name: 'Team A', score: 245, wickets: 3, overs: 35.2 },
-      teamB: { name: 'Team B', score: 0, wickets: 0, overs: 0 }
-    },
-    {
-      id: 2,
-      name: 'Team C vs Team D',
-      format: 'T20',
-      status: 'Upcoming',
-      venue: 'Cricket Ground 2',
-      date: new Date(Date.now() + 3600000),
-      teamA: { name: 'Team C', score: 0, wickets: 0, overs: 0 },
-      teamB: { name: 'Team D', score: 0, wickets: 0, overs: 0 }
-    }
-  ]);
-
-  const [upcomingMatches, setUpcomingMatches] = useState([
-    {
-      id: 3,
-      name: 'Team E vs Team F',
-      format: 'T20',
-      status: 'Upcoming',
-      date: new Date(Date.now() + 86400000 * 2),
-      venue: 'Cricket Ground 3'
-    },
-    {
-      id: 4,
-      name: 'Team G vs Team H',
-      format: 'ODI',
-      status: 'Upcoming',
-      date: new Date(Date.now() + 86400000 * 5),
-      venue: 'Cricket Ground 1'
-    }
-  ]);
-
+  const [dataSource, setDataSource] = useState('organized'); // 'global' or 'organized'
+  const [matchBuckets, setMatchBuckets] = useState({ live: [], scheduled: [], completed: [] });
+  const [loadingMatches, setLoadingMatches] = useState(true);
   const [stats, setStats] = useState({
     totalMatches: 0,
-    liveMatches: 1,
+    liveMatches: 0,
     completedMatches: 0,
     notStarted: 0
   });
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const fetchMatches = async () => {
+    try {
+      setLoadingMatches(true);
+      const endpoint = dataSource === 'global' ? '/matches/global' : '/matches/organized';
+      const { data } = await api.get(endpoint);
+      
+      const grouped = { live: [], scheduled: [], completed: [] };
+      const uniqueMap = new Map();
+      (data || []).forEach(m => {
+        const id = m._id || m.id;
+        if (id) uniqueMap.set(String(id), m);
+      });
 
-  useEffect(() => {
-    calculateStats();
-  }, [liveMatches, upcomingMatches]);
-
-  const calculateStats = () => {
-    setStats({
-      totalMatches: liveMatches.length + upcomingMatches.length,
-      liveMatches: liveMatches.filter(m => m.status === 'Live').length,
-      completedMatches: liveMatches.filter(m => m.status === 'Completed').length,
-      notStarted: upcomingMatches.length
-    });
+      Array.from(uniqueMap.values()).forEach(m => {
+        const status = String(m.status || '').toLowerCase();
+        if (status === 'live') grouped.live.push(m);
+        else if (status === 'completed' || status === 'abandoned') grouped.completed.push(m);
+        else grouped.scheduled.push(m);
+      });
+      
+      setMatchBuckets(grouped);
+      setStats({
+        totalMatches: data.length,
+        liveMatches: grouped.live.length,
+        completedMatches: grouped.completed.length,
+        notStarted: grouped.scheduled.length
+      });
+    } catch (err) {
+      toast.error('Failed to fetch matches');
+    } finally {
+      setLoadingMatches(false);
+    }
   };
 
+  useEffect(() => {
+    fetchMatches();
+  }, [dataSource]);
+
+  const [searchQuery, setSearchQuery] = useState('');
+
   const handleRefresh = () => {
+    fetchMatches();
     toast.success('Data refreshed');
-    calculateStats();
   };
 
   return (
@@ -96,7 +82,20 @@ const MatchCentreDashboard = () => {
                 <GiCricketBat className="text-cyan-400" />
                 Match Centre
               </h1>
-              <p className="text-slate-400">Live match updates and match center management</p>
+              <div className="flex items-center gap-4 mt-4">
+                <button 
+                  onClick={() => setDataSource('global')} 
+                  className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${dataSource === 'global' ? 'bg-cyan-500 text-black' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}
+                >
+                  Global Matches
+                </button>
+                <button 
+                  onClick={() => setDataSource('organized')} 
+                  className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${dataSource === 'organized' ? 'bg-cyan-500 text-black' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}
+                >
+                  Platform Matches
+                </button>
+              </div>
             </div>
             <div className="flex gap-3">
               <motion.button
@@ -185,15 +184,15 @@ const MatchCentreDashboard = () => {
             </h2>
           </div>
 
-          {liveMatches.filter(m => m.status === 'Live').length === 0 ? (
+          {matchBuckets.live.length === 0 ? (
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
-              <FiClock className="text-6xl text-slate-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-white mb-2">No live matches at the moment</h3>
-              <p className="text-slate-400">Check upcoming matches to see what's coming next!</p>
+              <FiActivity className="text-6xl text-slate-600 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-white mb-2">No live matches in this category</h3>
+              <p className="text-slate-400">Switch to {dataSource === 'global' ? 'Platform' : 'Global'} matches to see more!</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {liveMatches.filter(m => m.status === 'Live').map((match, idx) => (
+              {matchBuckets.live.map((match, idx) => (
                 <motion.div
                   key={match.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -201,12 +200,12 @@ const MatchCentreDashboard = () => {
                   transition={{ duration: 0.5, delay: 0.1 * idx }}
                   whileHover={{ translateY: -4 }}
                   className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/30 rounded-xl overflow-hidden hover:border-red-500/50 transition-all cursor-pointer"
-                  onClick={() => navigate(`/match/${match.id}`)}
+                  onClick={() => navigate(`/scorecard/${match.id}`)}
                 >
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h3 className="text-xl font-bold text-white mb-2">{match.name}</h3>
+                        <h3 className="text-xl font-bold text-white mb-2">{match.team1.name} vs {match.team2.name}</h3>
                         <div className="flex gap-4">
                           <span className="px-3 py-1 bg-red-500/30 text-red-300 rounded-full text-sm font-bold animate-pulse">
                             🔴 LIVE
@@ -219,28 +218,13 @@ const MatchCentreDashboard = () => {
                       <p className="text-slate-400 text-sm">{match.venue}</p>
                     </div>
 
-                    {/* Score Board */}
                     <div className="space-y-3 my-6">
-                      {/* Team A */}
-                      <div className="bg-slate-900/50 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold text-white">{match.teamA.name}</h4>
-                          <span className="text-2xl font-bold text-cyan-400">
-                            {match.teamA.score} <span className="text-sm text-slate-400">({match.teamA.wickets} wkts)</span>
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-400">{match.teamA.overs} overs</p>
-                      </div>
-
-                      {/* Team B */}
-                      <div className="bg-slate-900/50 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold text-white">{match.teamB.name}</h4>
-                          <span className="text-2xl font-bold text-slate-400">
-                            {match.teamB.score} <span className="text-sm text-slate-600">(Yet to bat)</span>
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-400">{match.teamB.overs} overs</p>
+                      <div className="bg-slate-900/50 rounded-lg p-4 flex justify-between items-center">
+                         <div className="text-white font-bold">{match.team1.shortName} vs {match.team2.shortName}</div>
+                         <div className="text-2xl font-black text-cyan-400">
+                           {match.currentRuns || 0}/{match.currentWickets || 0}
+                           <span className="text-sm text-slate-400 ml-2">({match.currentOver}.{match.currentBall} ov)</span>
+                         </div>
                       </div>
                     </div>
 
@@ -249,7 +233,7 @@ const MatchCentreDashboard = () => {
                       whileTap={{ scale: 0.98 }}
                       className="w-full px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg font-bold transition-all text-sm"
                     >
-                      View Live Ticker
+                      Open Match Centre
                     </motion.button>
                   </div>
                 </motion.div>
@@ -266,15 +250,15 @@ const MatchCentreDashboard = () => {
         >
           <h2 className="text-2xl font-bold text-white mb-6">Upcoming Matches</h2>
 
-          {upcomingMatches.length === 0 ? (
+          {matchBuckets.scheduled.length === 0 ? (
             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-12 text-center">
               <GiTrophy className="text-6xl text-slate-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-white mb-2">No upcoming matches</h3>
-              <p className="text-slate-400">Schedule new matches to see them here!</p>
+              <h3 className="text-xl font-bold text-white mb-2">No upcoming matches scheduled</h3>
+              <p className="text-slate-400">Check back later or switch category.</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {upcomingMatches.map((match, idx) => (
+              {matchBuckets.scheduled.map((match, idx) => (
                 <motion.div
                   key={match.id}
                   initial={{ opacity: 0, x: -20 }}
@@ -282,13 +266,14 @@ const MatchCentreDashboard = () => {
                   transition={{ duration: 0.5, delay: 0.1 * idx }}
                   whileHover={{ translateX: 8 }}
                   className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 hover:border-slate-600 transition-all cursor-pointer"
+                  onClick={() => navigate(`/scorecard/${match.id}`)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold text-white mb-2">{match.name}</h3>
+                      <h3 className="text-lg font-bold text-white mb-2">{match.team1.name} vs {match.team2.name}</h3>
                       <div className="flex gap-4 text-sm text-slate-400">
                         <span className="flex items-center gap-1">
-                          <FiClock /> {new Date(match.date).toLocaleDateString()} {new Date(match.date).toLocaleTimeString()}
+                          <FiClock /> {match.scheduledAt ? new Date(match.scheduledAt).toLocaleString() : 'TBD'}
                         </span>
                         <span className="flex items-center gap-1">
                           📍 {match.venue}

@@ -6,7 +6,6 @@ import {
   FiMail, 
   FiLock, 
   FiUser, 
-  FiPhone, 
   FiEye,
   FiEyeOff,
   FiUserPlus,
@@ -20,7 +19,6 @@ const Register = () => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    phone: '',
     password: '',
     confirmPassword: ''
   });
@@ -58,7 +56,6 @@ const Register = () => {
       const registerData = {
         username: formData.username,
         email: formData.email,
-        phone: formData.phone,
         password: Math.random().toString(36).slice(-12) + 'A1!',
         accountType
       };
@@ -68,7 +65,6 @@ const Register = () => {
         navigate('/verify-otp', { 
           state: { 
             email: formData.email, 
-            phone: formData.phone,
             isNewUser: true,
             expectedAccountType: accountType
           } 
@@ -85,7 +81,6 @@ const Register = () => {
         navigate('/verify-otp', { 
           state: { 
             email: formData.email,
-            phone: formData.phone,
             expectedAccountType: accountType
           } 
         });
@@ -239,26 +234,6 @@ const Register = () => {
                     className="input-pro pl-12"
                     placeholder="Enter your email"
                     value={formData.email}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="block text-sm font-bold text-slate-300 mb-2">
-                  Phone <span className="text-slate-500 text-xs">(Optional)</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <FiPhone className="text-leather-400" />
-                  </div>
-                  <input
-                    name="phone"
-                    type="tel"
-                    className="input-pro pl-12"
-                    placeholder="Enter phone number"
-                    value={formData.phone}
                     onChange={handleChange}
                   />
                 </div>

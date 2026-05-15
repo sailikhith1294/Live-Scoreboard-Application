@@ -3,9 +3,18 @@ const { fetchMergedMatches, fetchMatchDetailsById } = require('../services/liveF
 
 const hasObjectIdMatch = (left, right) => String(left || '') === String(right || '');
 
-const ensureAssignedUmpire = (match, user) => {
-  if (!user || user.role !== 'umpire') return true;
-  return hasObjectIdMatch(match.umpireId, user.id);
+const ensureScoringPermission = async (match, user) => {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  if (user.role === 'umpire') {
+    return hasObjectIdMatch(match.umpireId, user.id) || hasObjectIdMatch(match.legUmpireId, user.id);
+  }
+  if (user.role === 'organizer') {
+    const { Tournament } = require('../models');
+    const tournament = await Tournament.findById(match.tournamentId);
+    return hasObjectIdMatch(tournament?.organizerId, user.id);
+  }
+  return false;
 };
 
 const addBallEvent = async (req, res, next) => {
@@ -16,8 +25,8 @@ const addBallEvent = async (req, res, next) => {
       return res.status(404).json({ message: 'Match not found' });
     }
 
-    if (!ensureAssignedUmpire(match, req.user)) {
-      return res.status(403).json({ message: 'Only the assigned umpire can score this match' });
+    if (!await ensureScoringPermission(match, req.user)) {
+      return res.status(403).json({ message: 'Authorization required to score this match' });
     }
 
     const {
@@ -71,17 +80,120 @@ const addBallEvent = async (req, res, next) => {
     scorecard.overs = Number(`${overNumber}.${ballNumber}`);
     await scorecard.save();
 
+    // REAL WORLD FEATURE: Update Player Stats
+    if (strikerId) {
+      const striker = await PlayerProfile.findById(strikerId);
+      if (striker) {
+        striker.careerRuns = (striker.careerRuns || 0) + Number(batsmanRuns);
+        if (extraType !== 'wide') {
+          striker.totalBallsFaced = (striker.totalBallsFaced || 0) + 1;
+        }
+        if (Number(batsmanRuns) === 4) striker.fours = (striker.fours || 0) + 1;
+        if (Number(batsmanRuns) === 6) striker.sixes = (striker.sixes || 0) + 1;
+        
+        if (striker.totalBallsFaced > 0) {
+          striker.careerStrikeRate = ((striker.careerRuns / striker.totalBallsFaced) * 100).toFixed(2);
+        }
+        await striker.save();
+      }
+    }
+
+    if (bowlerId) {
+      const bowler = await PlayerProfile.findById(bowlerId);
+      if (bowler) {
+        if (isWicket && !['run out', 'retired hurt'].includes(String(wicketType || '').toLowerCase())) {
+          bowler.careerWickets = (bowler.careerWickets || 0) + 1;
+        }
+        
+        bowler.runsConceded = (bowler.runsConceded || 0) + Number(batsmanRuns) + Number(extras);
+        if (extraType !== 'wide' && extraType !== 'no-ball') {
+          bowler.totalBallsBowled = (bowler.totalBallsBowled || 0) + 1;
+        }
+
+        if (bowler.totalBallsBowled > 0) {
+          const totalOvers = bowler.totalBallsBowled / 6;
+          bowler.careerEconomy = (bowler.runsConceded / totalOvers).toFixed(2);
+        }
+        await bowler.save();
+      }
+    }
+
     match.status = 'live';
     match.currentRuns = scorecard.runs;
     match.currentWickets = scorecard.wickets;
     match.currentOver = overNumber;
     match.currentBall = ballNumber;
+
+    // BROADCAST FEATURE: Active Player Figures
+    const activeEvents = await BallEvent.find({ matchId, innings: 1 });
+    
+    const getStats = (pId) => {
+      const pEvents = activeEvents.filter(e => String(e.strikerId) === String(pId));
+      const runs = pEvents.reduce((acc, curr) => acc + curr.batsmanRuns, 0);
+      const balls = pEvents.filter(e => e.extraType !== 'wide').length;
+      return { runs, balls };
+    };
+
+    const getBowlerStats = (bId) => {
+      const bEvents = activeEvents.filter(e => String(e.bowlerId) === String(bId));
+      const runs = bEvents.reduce((acc, curr) => acc + curr.batsmanRuns + curr.extras, 0);
+      const balls = bEvents.filter(e => !['wide', 'no-ball'].includes(e.extraType)).length;
+      const wickets = bEvents.filter(e => e.isWicket && !['run out'].includes(String(e.wicketType).toLowerCase())).length;
+      const overs = Math.floor(balls / 6);
+      const bal = balls % 6;
+      return { overs: `${overs}.${bal}`, runs, wickets };
+    };
+
+    const sProfile = await PlayerProfile.findById(strikerId).populate('userId', 'fullName');
+    const nsProfile = await PlayerProfile.findById(req.body.nonStrikerId || null).populate('userId', 'fullName');
+    const bProfile = await PlayerProfile.findById(bowlerId).populate('userId', 'fullName');
+
+    if (sProfile) {
+      const { runs, balls } = getStats(strikerId);
+      match.activeStrikerData = { 
+        id: strikerId, 
+        name: sProfile.userId?.fullName || sProfile.name || 'Striker', 
+        runs, 
+        balls 
+      };
+    }
+    if (nsProfile) {
+      const { runs, balls } = getStats(nsProfile._id);
+      match.activeNonStrikerData = { 
+        id: nsProfile._id, 
+        name: nsProfile.userId?.fullName || nsProfile.name || 'Non-Striker', 
+        runs, 
+        balls 
+      };
+    }
+    if (bProfile) {
+      const { overs, runs, wickets } = getBowlerStats(bowlerId);
+      match.activeBowlerData = { 
+        id: bowlerId, 
+        name: bProfile.userId?.fullName || bProfile.name || 'Bowler', 
+        overs, 
+        runs, 
+        wickets 
+      };
+    }
+
     await match.save();
 
     await logActivity(req.user.id, 'MATCH_ADD_BALL_EVENT', { matchId, ballEventId: ball.id });
 
+    const broadcastData = await fetchMatchDetailsById(matchId);
     const io = req.app.get('io');
-    io.to(`match:${matchId}`).emit('score:update', { match, scorecard, ball });
+    io.to(`match:${matchId}`).emit('score:update', { 
+      match: broadcastData.match, 
+      scorecard: broadcastData.scorecard, 
+      ball 
+    });
+    io.emit('match:global_update', { 
+      type: 'score', 
+      matchId, 
+      match: broadcastData.match, 
+      scorecard: broadcastData.scorecard 
+    });
 
     res.status(201).json({ match, scorecard, ball });
   } catch (error) {
@@ -99,8 +211,8 @@ const logUmpireDecision = async (req, res, next) => {
       return res.status(404).json({ message: 'Match not found' });
     }
 
-    if (!ensureAssignedUmpire(match, req.user)) {
-      return res.status(403).json({ message: 'Only the assigned umpire can log decisions for this match' });
+    if (!await ensureScoringPermission(match, req.user)) {
+      return res.status(403).json({ message: 'Authorization required to log decisions for this match' });
     }
 
     const decision = await UmpireDecision.create({
@@ -121,22 +233,11 @@ const logUmpireDecision = async (req, res, next) => {
 const getScorecard = async (req, res, next) => {
   try {
     const { matchId } = req.params;
-    const [match, scorecard, events, decisions] = await Promise.all([
-      Match.findById(matchId),
-      Scorecard.findOne({ matchId }),
-      BallEvent.find({ matchId }).sort({ createdAt: 1 }),
-      UmpireDecision.find({ matchId }).sort({ createdAt: 1 }),
-    ]);
-
-    if (!match) {
-      const external = await fetchMatchDetailsById(matchId);
-      if (external) {
-        return res.json(external);
-      }
-      return res.status(404).json({ message: 'Match not found' });
+    const details = await fetchMatchDetailsById(matchId);
+    if (!details) {
+      return res.status(404).json({ message: 'Match details not found' });
     }
-
-    return res.json({ match, scorecard, events, decisions });
+    return res.json(details);
   } catch (error) {
     return next(error);
   }
@@ -202,6 +303,34 @@ const getPlayerProfile = async (req, res, next) => {
   }
 };
 
+const updateMatchStatus = async (req, res, next) => {
+  try {
+    const { matchId } = req.params;
+    const { status, note } = req.body;
+
+    const match = await Match.findById(matchId);
+    if (!match) return res.status(404).json({ message: 'Match not found' });
+
+    if (!await ensureScoringPermission(match, req.user)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    match.status = status;
+    await match.save();
+
+    // Log the event
+    await logActivity(req.user.id, 'MATCH_STATUS_CHANGE', { matchId, status, note });
+
+    const io = req.app.get('io');
+    io.to(`match:${matchId}`).emit('match:status_update', { matchId, status, note });
+    io.emit('match:global_update', { type: 'status', matchId, match });
+
+    res.json({ success: true, match });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addBallEvent,
   logUmpireDecision,
@@ -211,4 +340,5 @@ module.exports = {
   listComments,
   toggleLike,
   getPlayerProfile,
+  updateMatchStatus,
 };
