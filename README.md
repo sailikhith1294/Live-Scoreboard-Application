@@ -1,6 +1,6 @@
-# Antigravity Cricket: Real-Time Tournament & Live Feed Platform
+# Cricket: Real-Time Tournament & Live Feed Platform
 
-Antigravity Cricket is a premium, real-time cricket management ecosystem designed for organizers, athletes, and spectators. It combines professional tournament orchestration with a global live match feed, powered by an event-driven architecture for instantaneous data synchronization.
+Cricket is a premium, real-time cricket management ecosystem designed for organizers, athletes, and spectators. It combines professional tournament orchestration with a global live match feed, powered by an event-driven architecture for instantaneous data synchronization.
 
 ## 🚀 Key Features
 
