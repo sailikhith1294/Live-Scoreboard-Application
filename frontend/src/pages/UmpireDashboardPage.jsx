@@ -51,6 +51,9 @@ const UmpireDashboardPage = () => {
                     <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20 shadow-lg shadow-emerald-900/10 transition-all flex items-center gap-2">
                        OFFICIAL STATUS: ACTIVE
                     </p>
+                    <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20 shadow-lg shadow-emerald-900/10 transition-all flex items-center gap-2">
+                       UMPIRE ID: {user?._id || user?.id || 'N/A'}
+                    </p>
                  </div>
               </div>
            </div>

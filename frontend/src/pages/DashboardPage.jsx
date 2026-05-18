@@ -112,7 +112,7 @@ const DashboardPage = () => {
                   <div className="flex items-center gap-2">
                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em]">Verified Member</span>
                   </div>
-                  <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20 shadow-lg shadow-emerald-900/10 mt-2 inline-block">USER ID: {user?._id || user?.id || 'N/A'}</p>
+                  <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20 shadow-lg shadow-emerald-900/10 mt-2 inline-block">{(primaryRole || user?.role || 'user').toUpperCase()} ID: {user?._id || user?.id || 'N/A'}</p>
                </div>
             </div>
         </div>
