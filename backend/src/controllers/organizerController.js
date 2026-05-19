@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const {
   Tournament,
   Venue,
@@ -792,7 +793,7 @@ const assignOfficials = async (req, res, next) => {
 
     if (umpireId !== undefined) {
       if (umpireId === '') {
-        match.umpireId = null;
+        match.umpireId = undefined;
       } else {
         const res = await processUmpire(umpireId, 'Main Umpire');
         if (res?.error) return res.status(400).json({ message: res.error });
@@ -802,7 +803,7 @@ const assignOfficials = async (req, res, next) => {
     
     if (legUmpireId !== undefined) {
       if (legUmpireId === '') {
-        match.legUmpireId = null;
+        match.legUmpireId = undefined;
       } else {
         const res = await processUmpire(legUmpireId, 'Leg Umpire');
         if (res?.error) return res.status(400).json({ message: res.error });

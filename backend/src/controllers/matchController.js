@@ -306,7 +306,7 @@ const getPlayerProfile = async (req, res, next) => {
 const updateMatchStatus = async (req, res, next) => {
   try {
     const { matchId } = req.params;
-    const { status, note } = req.body;
+    const { status, note, winnerId } = req.body;
 
     const match = await Match.findById(matchId);
     if (!match) return res.status(404).json({ message: 'Match not found' });
@@ -316,13 +316,25 @@ const updateMatchStatus = async (req, res, next) => {
     }
 
     match.status = status;
+    if (winnerId) match.winnerId = winnerId;
     await match.save();
 
     // Log the event
-    await logActivity(req.user.id, 'MATCH_STATUS_CHANGE', { matchId, status, note });
+    await logActivity(req.user.id, 'MATCH_STATUS_CHANGE', { matchId, status, note, winnerId });
+
+    if (status === 'completed') {
+      const { updateLeaderboardFromMatch } = require('../services/leaderboardService');
+      const { updatePlayerStatsFromMatch } = require('../services/playerStatsService');
+      try {
+        await updateLeaderboardFromMatch(match.id);
+        await updatePlayerStatsFromMatch(match.id);
+      } catch (err) {
+        console.error('Stats synchronization failed:', err);
+      }
+    }
 
     const io = req.app.get('io');
-    io.to(`match:${matchId}`).emit('match:status_update', { matchId, status, note });
+    io.to(`match:${matchId}`).emit('match:status_update', { matchId, status, note, winnerId });
     io.emit('match:global_update', { type: 'status', matchId, match });
 
     res.json({ success: true, match });

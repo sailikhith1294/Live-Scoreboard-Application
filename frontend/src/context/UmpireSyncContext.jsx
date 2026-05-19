@@ -48,9 +48,11 @@ export const UmpireSyncProvider = ({ children }) => {
     // Umpires listen for organizer updates too as they might be assigned to new matches
     const handleOrganizerUpdate = () => loadMatches();
     socket.onOrganizerUpdate(handleOrganizerUpdate);
+    socket.onLiveUpdate(handleOrganizerUpdate);
 
     return () => {
       socket.offOrganizerUpdate(handleOrganizerUpdate);
+      socket.offLiveUpdate(handleOrganizerUpdate);
       socket.leaveUmpire(user.id);
     };
   }, [user, loadMatches]);

@@ -62,12 +62,12 @@ const OrganizerMatchesPage = () => {
     
     try {
       await api.patch(`/organizer/matches/${matchId}/status`, { status, winnerId });
-      // toast.success(`Match is now ${status.toUpperCase()}`);
+      toast.success(`Match is now ${status.toUpperCase()}`);
       refresh();
       setSelectedMatch(null);
     } catch (err) { 
-      // const msg = err.response?.data?.message || 'Update failed';
-      // toast.error(msg);
+      const msg = err.response?.data?.message || 'Update failed';
+      toast.error(msg);
     }
   };
 
@@ -87,20 +87,20 @@ const OrganizerMatchesPage = () => {
     e.preventDefault();
     try {
       await api.patch(`/organizer/matches/${getId(selectedMatch)}/toss`, tossForm);
-      // toast.success('Toss details saved');
+      toast.success('Toss details saved');
       refresh();
-    } catch (err) { /* toast.error('Failed to save toss'); */ }
+    } catch (err) { toast.error('Failed to save toss'); }
   };
 
   const assignOfficials = async (e) => {
     e.preventDefault();
     try {
       await api.patch(`/organizer/matches/${getId(selectedMatch)}/officials`, officials);
-      // toast.success('Officials assigned');
+      toast.success('Officials assigned');
       refresh();
     } catch (err) { 
-      // const msg = err.response?.data?.message || 'Assignment failed';
-      // toast.error(msg);
+      const msg = err.response?.data?.message || 'Assignment failed';
+      toast.error(msg);
     }
   };
 
@@ -110,9 +110,9 @@ const OrganizerMatchesPage = () => {
         homeSquad: squads.home,
         awaySquad: squads.away
       });
-      // toast.success('Squads updated');
+      toast.success('Squads updated');
       refresh();
-    } catch (err) { /* toast.error('Failed to update squads'); */ }
+    } catch (err) { toast.error('Failed to update squads'); }
   };
 
   if (loading) return (

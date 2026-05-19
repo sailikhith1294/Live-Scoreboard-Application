@@ -75,7 +75,7 @@ export const DataSyncProvider = ({ children }) => {
   const handleLiveUpdate = useCallback((data) => {
     console.log('📡 Live update received:', data);
 
-    if (data.type === 'matchUpdate' && data.match) {
+    if ((data.type === 'matchUpdate' || data.type === 'status' || data.type === 'match_status') && data.match) {
       updateMatch(data.match);
     }
 

@@ -70,9 +70,11 @@ export const OrganizerSyncProvider = ({ children }) => {
     };
 
     socket.onOrganizerUpdate(handleUpdate);
+    socket.onLiveUpdate(handleUpdate);
 
     return () => {
       socket.offOrganizerUpdate(handleUpdate);
+      socket.offLiveUpdate(handleUpdate);
       socket.leaveOrganizer(user.id);
     };
   }, [user, loadDashboard]);

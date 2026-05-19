@@ -24,6 +24,9 @@ const ScoringPage = () => {
   const [nonStrikerId, setNonStrikerId] = useState('');
   const [bowlerId, setBowlerId] = useState('');
 
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [selectedWinnerId, setSelectedWinnerId] = useState('');
+
   const outPlayerIds = new Set(
     events.filter(e => e.isWicket).map(e => String(e.strikerId?._id || e.strikerId))
   );
@@ -225,11 +228,16 @@ const ScoringPage = () => {
     } catch (err) { /* silent fail */ }
   };
 
-  const updateStatus = async (status, note) => {
+  const updateStatus = async (status, note, winnerId = null) => {
     try {
-      await api.patch(`/matches/${matchId}/status`, { status, note });
+      const payload = { status, note };
+      if (winnerId) payload.winnerId = winnerId;
+      await api.patch(`/matches/${matchId}/status`, payload);
       toast.success(`MATCH ${status.toUpperCase()}`);
-      setMatch(prev => ({ ...prev, status }));
+      setMatch(prev => ({ ...prev, status, winnerId }));
+      if (status === 'completed') {
+        setShowFinalizeModal(false);
+      }
     } catch (err) {
       toast.error('Failed to update match status');
     }
@@ -304,7 +312,27 @@ const ScoringPage = () => {
            {/* Left Column: Lineup & Controls */}
            <div className="lg:col-span-8 space-y-8">
               {/* Official Assignment Card */}
-              <section className="surface-panel p-8 bg-mesh border-emerald-500/10">
+              {match.status === 'completed' ? (
+                 <div className="surface-panel p-10 text-center border-dashed border-2 flex flex-col items-center justify-center min-h-[300px] bg-emerald-500/[0.02] border-emerald-500/20 mb-8">
+                    <FiCheckCircle className="text-7xl mb-6 text-emerald-500" />
+                    <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter">Match Finalized</h3>
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mt-2">Scoring operations have concluded</p>
+                 </div>
+              ) : match.status === 'delayed' ? (
+                 <div className="surface-panel p-10 text-center border-dashed border-2 flex flex-col items-center justify-center min-h-[300px] bg-amber-500/[0.02] border-amber-500/20 mb-8">
+                    <FiClock className="text-7xl mb-6 text-amber-500 animate-pulse" />
+                    <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter">Match Delayed</h3>
+                    <p className="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em] mt-2 mb-8">Match operations are temporarily paused</p>
+                    <button 
+                      onClick={() => updateStatus('live', 'Match resumed')}
+                      className="px-8 py-4 rounded-full bg-emerald-500 text-black text-xs font-black uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-3"
+                    >
+                       <FiZap className="text-lg" /> Resume Match
+                    </button>
+                 </div>
+              ) : (
+                 <>
+                   <section className="surface-panel p-8 bg-mesh border-emerald-500/10">
                  <div className="grid sm:grid-cols-3 gap-6 items-end">
                     <div className="space-y-4">
                        <div className="flex items-center gap-2 text-[10px] font-black text-emerald-500 uppercase tracking-widest">
@@ -496,9 +524,8 @@ const ScoringPage = () => {
                        </button>
                        <button 
                          onClick={() => {
-                            if(!window.confirm('FINALIZE MATCH: This will end the live session and declare a winner. Proceed?')) return;
-                            const winnerId = window.prompt(`Enter Winner Team ID (${match.homeTeamId?.shortCode} vs ${match.awayTeamId?.shortCode}):`);
-                            if (winnerId) updateStatus('completed', winnerId);
+                            setSelectedWinnerId(match.homeTeamId?._id || match.homeTeamId || '');
+                            setShowFinalizeModal(true);
                          }}
                          className="p-4 rounded-2xl bg-emerald-600/10 border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex flex-col items-center gap-2 group sm:col-span-1"
                        >
@@ -507,6 +534,9 @@ const ScoringPage = () => {
                        </button>
                     </div>
                  </section>
+
+                 </>
+              )}
 
                  {/* Squad Reference */}
               <section className="grid sm:grid-cols-2 gap-8">
@@ -600,6 +630,76 @@ const ScoringPage = () => {
            </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showFinalizeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setShowFinalizeModal(false)}
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg surface-panel p-8 bg-mesh border-emerald-500/30 shadow-2xl shadow-emerald-900/20"
+            >
+              <div className="text-center mb-8">
+                <FiCheckCircle className="text-5xl text-emerald-500 mx-auto mb-4" />
+                <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Finalize Match</h2>
+                <p className="text-xs text-slate-400 mt-2">End the live scoring session and officially declare the winner.</p>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Select Match Winner</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button 
+                      onClick={() => setSelectedWinnerId(match.homeTeamId?._id || match.homeTeamId)}
+                      className={`py-4 px-4 rounded-2xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${selectedWinnerId === (match.homeTeamId?._id || match.homeTeamId) ? 'bg-emerald-500 text-black border-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'}`}
+                    >
+                      <span className="uppercase">{match.homeTeamId?.shortCode}</span>
+                      <span className="text-[10px] font-normal opacity-80">{match.homeTeamId?.name}</span>
+                    </button>
+                    <button 
+                      onClick={() => setSelectedWinnerId(match.awayTeamId?._id || match.awayTeamId)}
+                      className={`py-4 px-4 rounded-2xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${selectedWinnerId === (match.awayTeamId?._id || match.awayTeamId) ? 'bg-emerald-500 text-black border-emerald-500 shadow-lg shadow-emerald-500/20' : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'}`}
+                    >
+                      <span className="uppercase">{match.awayTeamId?.shortCode}</span>
+                      <span className="text-[10px] font-normal opacity-80">{match.awayTeamId?.name}</span>
+                    </button>
+                    <button 
+                      onClick={() => setSelectedWinnerId('draw')}
+                      className={`col-span-2 py-4 px-4 rounded-2xl border text-xs font-bold transition-all flex flex-col items-center gap-1 ${selectedWinnerId === 'draw' ? 'bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20' : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'}`}
+                    >
+                      <span className="uppercase">Match Drawn / Tied</span>
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="pt-6 border-t border-white/10 flex gap-4">
+                  <button 
+                    onClick={() => setShowFinalizeModal(false)}
+                    className="flex-1 py-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const finalWinnerId = selectedWinnerId === 'draw' ? null : selectedWinnerId;
+                      updateStatus('completed', 'Match finalized by umpire', finalWinnerId);
+                    }}
+                    className="flex-1 py-4 rounded-2xl bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
+                  >
+                    Confirm Winner
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
