@@ -770,53 +770,44 @@ const assignOfficials = async (req, res, next) => {
     }
 
     const { umpireId, legUmpireId } = req.body;
-    const { PromotionRequest } = require('../models');
     let advisoryNote = '';
 
     const processUmpire = async (uId, label) => {
-      if (!uId) return null;
+      if (!uId) return { authorized: false };
       if (!mongoose.Types.ObjectId.isValid(uId)) return { error: `Invalid ${label} ID format` };
       
       const u = await User.findById(uId);
       if (!u) return { error: `${label} user not found` };
 
-      if (u.role === 'umpire' || u.role === 'admin') {
+      if (u.role === 'umpire' || u.role === 'admin' || u.role === 'organizer') {
         return { authorized: true };
       } else {
-        // Suggest for promotion
-        const existing = await PromotionRequest.findOne({ userId: u._id, requestedRole: 'umpire', status: 'pending' });
-        if (!existing) {
-          await PromotionRequest.create({
-            userId: u._id,
-            requestedRole: 'umpire',
-            message: `Assigned as ${label} for Match ${match.matchNo} by ${req.user.fullName}.`,
-            advisedBy: req.user.id
-          });
-          
-          // Notify Admin
-          const io = req.app.get('io');
-          if (io) {
-            io.to('admin:global').emit('admin:update', { 
-              type: 'promotion_requested', 
-              data: { user: u, advisedBy: req.user.fullName } 
-            });
-          }
-          advisoryNote += `Promotion request initiated for ${u.fullName} (${label}). `;
-        }
-        return { pending: true };
+        // Auto-promote to umpire
+        u.role = 'umpire';
+        await u.save();
+        advisoryNote += `${u.fullName} automatically promoted to Umpire. `;
+        return { authorized: true };
       }
     };
 
-    if (umpireId) {
-      const res = await processUmpire(umpireId, 'Main Umpire');
-      if (res?.error) return res.status(400).json({ message: res.error });
-      if (res?.authorized) match.umpireId = umpireId;
+    if (umpireId !== undefined) {
+      if (umpireId === '') {
+        match.umpireId = null;
+      } else {
+        const res = await processUmpire(umpireId, 'Main Umpire');
+        if (res?.error) return res.status(400).json({ message: res.error });
+        if (res?.authorized) match.umpireId = umpireId;
+      }
     }
     
-    if (legUmpireId) {
-      const res = await processUmpire(legUmpireId, 'Leg Umpire');
-      if (res?.error) return res.status(400).json({ message: res.error });
-      if (res?.authorized) match.legUmpireId = legUmpireId;
+    if (legUmpireId !== undefined) {
+      if (legUmpireId === '') {
+        match.legUmpireId = null;
+      } else {
+        const res = await processUmpire(legUmpireId, 'Leg Umpire');
+        if (res?.error) return res.status(400).json({ message: res.error });
+        if (res?.authorized) match.legUmpireId = legUmpireId;
+      }
     }
 
     await match.save();
