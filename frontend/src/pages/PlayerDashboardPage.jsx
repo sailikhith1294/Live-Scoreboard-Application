@@ -1,11 +1,33 @@
+import React, { useState, useEffect } from 'react';
 import { usePlayerSync } from '../context/PlayerSyncContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FiActivity, FiUser, FiZap, FiArrowRight, FiAward } from 'react-icons/fi';
+import { FiActivity, FiUser, FiZap, FiArrowRight, FiAward, FiUsers, FiShield, FiEdit2, FiSave, FiX } from 'react-icons/fi';
 import BackButton from '../components/Common/BackButton';
+import api from '../services/api';
+import toast from 'react-hot-toast';
 
 const PlayerDashboardPage = () => {
-  const { profile, matches, loading } = usePlayerSync();
+  const { profile, matches, loading, refresh } = usePlayerSync();
+  const navigate = useNavigate();
+  const [inviteCode, setInviteCode] = useState('');
+  const [editingBio, setEditingBio] = useState(false);
+  const [bioInput, setBioInput] = useState('');
+
+  useEffect(() => {
+    if (profile) setBioInput(profile.bio || '');
+  }, [profile]);
+
+  const saveBio = async () => {
+    try {
+      await api.put('/common/me/player-profile', { bio: bioInput });
+      toast.success('Bio updated');
+      setEditingBio(false);
+      refresh();
+    } catch (e) {
+      toast.error('Failed to update bio');
+    }
+  };
 
   const getId = (row) => row?._id || row?.id;
 
@@ -89,6 +111,55 @@ const PlayerDashboardPage = () => {
         </div>
 
         <div className="lg:col-span-4 space-y-8">
+           {profile?.captainedTeams?.length > 0 && (
+             <section className="surface-panel p-8 bg-mesh border-indigo-500/20">
+                <div className="flex items-center gap-3 mb-4">
+                   <FiShield className="text-indigo-400" />
+                   <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Captain's Hub</p>
+                </div>
+                <div className="space-y-4">
+                   {profile.captainedTeams.map(team => (
+                     <div key={team._id || team.id} className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-col gap-3">
+                        <div>
+                           <p className="font-black text-white">{team.name}</p>
+                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Invite: {team.inviteCode}</p>
+                        </div>
+                        <Link 
+                           to={`/dashboard/captain/team/${team._id || team.id}`}
+                           className="w-full bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl py-3 text-[10px] font-black uppercase tracking-widest transition-all text-center block"
+                        >
+                           Manage Squad
+                        </Link>
+                     </div>
+                   ))}
+                </div>
+             </section>
+           )}
+
+           {(!profile?.teams || profile.teams.length === 0) && (
+             <section className="surface-panel p-8 bg-mesh border-cyan-500/20 mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                   <FiUsers className="text-cyan-400" />
+                   <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Join a Team</p>
+                </div>
+                <div className="space-y-4">
+                  <input 
+                     type="text" 
+                     placeholder="Enter Invite Code" 
+                     value={inviteCode} 
+                     onChange={(e) => setInviteCode(e.target.value)} 
+                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                  />
+                  <button 
+                     onClick={() => { if(inviteCode) navigate(`/join/team/${inviteCode}`) }}
+                     className="w-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-xl py-3 text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                     Verify Code
+                  </button>
+                </div>
+             </section>
+           )}
+
            <section className="surface-panel p-8 space-y-6">
               <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
                  <FiAward className="text-cyan-400" /> Stats Overview
@@ -113,11 +184,40 @@ const PlayerDashboardPage = () => {
            </section>
 
            <section className="surface-panel p-8 bg-mesh border-cyan-500/20">
-              <div className="flex items-center gap-3 mb-4">
-                 <FiUser className="text-cyan-400" />
-                 <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Athlete Bio</p>
+              <div className="flex items-center justify-between mb-4">
+                 <div className="flex items-center gap-3">
+                    <FiUser className="text-cyan-400" />
+                    <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Athlete Bio</p>
+                 </div>
+                 {!editingBio && (
+                   <button onClick={() => setEditingBio(true)} className="text-slate-500 hover:text-cyan-400 transition-colors">
+                      <FiEdit2 size={14} />
+                   </button>
+                 )}
               </div>
-              <p className="text-sm text-slate-300 font-medium leading-relaxed">Dedicated professional athlete participating in the regional cricket championship series.</p>
+              
+              {editingBio ? (
+                <div className="space-y-3">
+                   <textarea
+                     value={bioInput}
+                     onChange={(e) => setBioInput(e.target.value)}
+                     className="w-full bg-black/50 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors resize-none h-24"
+                     placeholder="Tell us about your cricket journey..."
+                   />
+                   <div className="flex justify-end gap-2">
+                      <button onClick={() => { setEditingBio(false); setBioInput(profile?.bio || ''); }} className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors">
+                         <FiX />
+                      </button>
+                      <button onClick={saveBio} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-colors">
+                         <FiSave />
+                      </button>
+                   </div>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-300 font-medium leading-relaxed">
+                   {profile?.bio || 'Dedicated professional athlete participating in the regional cricket championship series.'}
+                </p>
+              )}
            </section>
         </div>
       </div>

@@ -162,12 +162,33 @@ const getMyPlayerProfile = async (req, res, next) => {
     const teamLinks = await TeamPlayer.find({ playerProfileId: profile._id }).populate('teamId', 'name shortCode');
     const teams = teamLinks.map(tl => tl.teamId).filter(Boolean);
 
+    // Get teams where player is captain
+    const captainedTeams = await Team.find({ captainId: req.user.id }).select('name shortCode inviteCode');
+
     return res.json({
       ...profile.toObject(),
-      teams
+      teams,
+      captainedTeams
     });
   } catch (error) {
     return next(error);
+  }
+};
+
+const updateMyPlayerProfile = async (req, res, next) => {
+  try {
+    const { bio } = req.body;
+    let profile = await PlayerProfile.findOne({ userId: req.user.id });
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+    
+    if (bio !== undefined) {
+      profile.bio = String(bio).trim();
+    }
+    await profile.save();
+    
+    res.json(profile);
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -249,7 +270,7 @@ const joinTeamByInviteCode = async (req, res, next) => {
     // Check team size
     const memberCount = await TeamPlayer.countDocuments({ teamId: team.id });
     if (memberCount >= 15) {
-      return res.status(400).json({ message: 'Team roster is full (max 15 members)' });
+      return res.status(400).json({ message: 'Squad is full, contact team captain' });
     }
 
     // Check if player profile exists
@@ -380,6 +401,45 @@ const removePlayerFromTeam = async (req, res, next) => {
   }
 };
 
+const updatePlayerRole = async (req, res, next) => {
+  try {
+    const { teamId, profileId } = req.params;
+    const { role } = req.body;
+    
+    if (!['batter', 'bowler', 'all-rounder', 'wicket-keeper'].includes(role)) {
+      return res.status(400).json({ message: 'Invalid player role' });
+    }
+
+    const team = await Team.findById(teamId);
+    if (!team) return res.status(404).json({ message: 'Team not found' });
+
+    // Authorization: Must be Captain or Organizer or Admin
+    const isCaptain = String(team.captainId) === String(req.user.id);
+    const isOrganizer = String(team.organizerId) === String(req.user.id);
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isCaptain && !isOrganizer && !isAdmin) {
+      return res.status(403).json({ message: 'Unauthorized to edit player roles' });
+    }
+
+    // Ensure the player is actually in the team
+    const teamPlayer = await TeamPlayer.findOne({ teamId, playerProfileId: profileId });
+    if (!teamPlayer) {
+      return res.status(404).json({ message: 'Player not found in this team' });
+    }
+
+    const updatedProfile = await PlayerProfile.findByIdAndUpdate(
+      profileId,
+      { playerRole: role },
+      { new: true }
+    );
+
+    res.json({ success: true, message: 'Player role updated', playerRole: updatedProfile.playerRole });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   searchAll,
   getLeaderboard,
@@ -389,6 +449,7 @@ module.exports = {
   setFavorite,
   getMyFavorites,
   getMyPlayerProfile,
+  updateMyPlayerProfile,
   getMyPromotionRequest,
   requestPromotion,
   getTeamByInviteCode,
@@ -397,4 +458,5 @@ module.exports = {
   getOrganizedMatches,
   getTeamPlayers,
   removePlayerFromTeam,
+  updatePlayerRole,
 };

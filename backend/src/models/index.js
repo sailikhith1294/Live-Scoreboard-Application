@@ -41,6 +41,7 @@ const playerProfileSchema = new mongoose.Schema(
     runsConceded: { type: Number, default: 0 },
     fours: { type: Number, default: 0 },
     sixes: { type: Number, default: 0 },
+    bio: { type: String, default: null },
   },
   schemaOptions
 );

@@ -8,6 +8,7 @@ const {
   setFavorite,
   getMyFavorites,
   getMyPlayerProfile,
+  updateMyPlayerProfile,
   getMyPromotionRequest,
   requestPromotion,
   getTeamByInviteCode,
@@ -16,6 +17,7 @@ const {
   getOrganizedMatches,
   getTeamPlayers,
   removePlayerFromTeam,
+  updatePlayerRole,
 } = require('../controllers/commonController');
 const { authenticate } = require('../middleware/auth');
 
@@ -31,11 +33,13 @@ router.get('/notifications', getMyNotifications); // Make notifications public (
 router.get('/favorites', authenticate, getMyFavorites);
 router.post('/favorites', authenticate, setFavorite);
 router.get('/me/player-profile', authenticate, getMyPlayerProfile);
+router.put('/me/player-profile', authenticate, updateMyPlayerProfile);
 router.get('/me/promotion-request', authenticate, getMyPromotionRequest);
 router.post('/me/promotion-request', authenticate, requestPromotion);
 router.get('/teams/invite/:inviteCode', getTeamByInviteCode);
 router.post('/teams/join/:inviteCode', authenticate, joinTeamByInviteCode);
 router.get('/teams/:teamId/players', getTeamPlayers);
 router.delete('/teams/:teamId/players/:profileId', authenticate, removePlayerFromTeam);
+router.put('/teams/:teamId/players/:profileId/role', authenticate, updatePlayerRole);
 
 module.exports = router;

@@ -13,6 +13,7 @@ import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import OrganizerDashboardPage from './pages/OrganizerDashboardPage';
 import PlayerDashboardPage from './pages/PlayerDashboardPage';
+import CaptainDashboardPage from './pages/CaptainDashboardPage';
 import ScorecardPage from './pages/ScorecardPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import PlayerProfilePage from './pages/PlayerProfilePage';
@@ -279,6 +280,19 @@ function App() {
                           <RoleOnly roles={['player']}>
                             <Layout>
                               <PlayerDashboardPage />
+                            </Layout>
+                          </RoleOnly>
+                        </RequireAuth>
+                      }
+                    />
+
+                    <Route
+                      path="/dashboard/captain/team/:teamId"
+                      element={
+                        <RequireAuth>
+                          <RoleOnly roles={['player', 'admin']}>
+                            <Layout>
+                              <CaptainDashboardPage />
                             </Layout>
                           </RoleOnly>
                         </RequireAuth>
