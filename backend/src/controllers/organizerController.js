@@ -769,6 +769,7 @@ const assignOfficials = async (req, res, next) => {
       return res.status(404).json({ message: 'Match not found' });
     }
 
+    const { umpireId, legUmpireId } = req.body;
     const { PromotionRequest } = require('../models');
     let advisoryNote = '';
 
