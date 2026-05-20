@@ -339,9 +339,24 @@ const fetchOrganizedMatches = async () => {
       .limit(100)
       .lean();
 
+    const matchIds = matches.map(m => m._id);
+    const { Scorecard } = require('../models');
+    const scorecards = await Scorecard.find({ matchId: { $in: matchIds } }).lean();
+    const scorecardMap = scorecards.reduce((acc, sc) => {
+      acc[String(sc.matchId)] = sc;
+      return acc;
+    }, {});
+
     return matches.map((m) => {
       const hTeam = m.homeTeamId || {};
       const aTeam = m.awayTeamId || {};
+      const sc = scorecardMap[String(m._id)];
+      
+      // Fallback to Scorecard model if Match model fields are not synced
+      const currentRuns = m.currentRuns || sc?.runs || 0;
+      const currentWickets = m.currentWickets || sc?.wickets || 0;
+      const currentOver = m.currentOver || Math.floor(sc?.overs || 0);
+      const currentBall = m.currentBall || Math.round(((sc?.overs || 0) % 1) * 10);
       
       return {
         id: String(m._id),
@@ -366,14 +381,14 @@ const fetchOrganizedMatches = async () => {
         tossWinnerTeamId: m.tossWinnerTeamId,
         tossDecision: m.tossDecision,
         source: 'organized',
-        currentRuns: m.currentRuns || 0,
-        currentWickets: m.currentWickets || 0,
-        currentOver: m.currentOver || 0,
+        currentRuns,
+        currentWickets,
+        currentOver,
         activeStrikerData: m.activeStrikerData,
         activeNonStrikerData: m.activeNonStrikerData,
         activeBowlerData: m.activeBowlerData,
         scorecard: {
-          text: `${m.currentRuns || 0}/${m.currentWickets || 0} (${m.currentOver || 0}.${m.currentBall || 0})`
+          text: `${currentRuns}/${currentWickets} (${sc?.overs || `${currentOver}.${currentBall}`})`
         }
       };
     });

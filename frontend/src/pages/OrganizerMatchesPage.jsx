@@ -280,127 +280,137 @@ const OrganizerMatchesPage = () => {
                    </div>
                    
                     <div className="space-y-10">
-                       {/* Toss Section */}
-                       <section className="space-y-5">
-                          <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Toss Details</p>
-                          <form onSubmit={submitToss} className="space-y-4">
-                             <select 
-                                required
-                                className="input-field !py-4 !bg-white/5 border-white/10"
-                                value={tossForm.tossWinnerTeamId}
-                                onChange={e => setTossForm({...tossForm, tossWinnerTeamId: e.target.value})}
-                             >
-                                <option value="">Select Winning Team</option>
-                                <option value={getId(selectedMatch.homeTeamId)}>{selectedMatch.homeTeamId?.name}</option>
-                                <option value={getId(selectedMatch.awayTeamId)}>{selectedMatch.awayTeamId?.name}</option>
-                             </select>
-                             <div className="grid grid-cols-2 gap-3">
-                                <button 
-                                  type="button"
-                                  onClick={() => setTossForm({...tossForm, tossDecision: 'bat'})}
-                                  className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${tossForm.tossDecision === 'bat' ? 'bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-900/20' : 'bg-white/5 text-slate-600 border-white/5 hover:border-white/10'}`}
-                                >Bat First</button>
-                                <button 
-                                  type="button"
-                                  onClick={() => setTossForm({...tossForm, tossDecision: 'bowl'})}
-                                  className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${tossForm.tossDecision === 'bowl' ? 'bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-900/20' : 'bg-white/5 text-slate-600 border-white/5 hover:border-white/10'}`}
-                                >Bowl First</button>
-                             </div>
-                             <button className="w-full btn-primary !py-4 shadow-lg shadow-amber-900/10">Save Toss Results</button>
-                          </form>
-                       </section>
-
-                       {/* Squad Selection Section */}
-                       <section className="space-y-5 pt-10 border-t border-white/10">
-                          <div className="flex justify-between items-center">
-                             <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Squad Selection</p>
-                             <button 
-                               onClick={saveSquads}
-                               className="text-[8px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20"
-                             >Commit Squads</button>
+                       {(selectedMatch.status === 'completed' || selectedMatch.status === 'abandoned') ? (
+                          <div className="surface-panel p-10 text-center border-emerald-500/20 bg-emerald-500/5 mt-8">
+                             <FiShield className="text-4xl text-emerald-500 mx-auto mb-4" />
+                             <h4 className="text-xl font-black text-white italic">MATCH CONCLUDED</h4>
+                             <p className="text-[10px] font-bold text-emerald-400/80 uppercase tracking-widest mt-2">All match details are permanently locked and finalized.</p>
                           </div>
-                          
-                          {loadingPlayers ? (
-                            <div className="py-10 text-center opacity-30"><p className="text-[10px] font-black uppercase">Loading Rosters...</p></div>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-6">
-                               {/* Home Squad */}
-                               <div className="space-y-4">
-                                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest text-center">{selectedMatch.homeTeamId?.shortCode} Squad</p>
-                                  <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                                     {teamPlayers.filter(p => String(p.team?._id || p.team?.id) === getId(selectedMatch.homeTeamId)).map(p => (
-                                       <div 
-                                         key={p.id}
-                                         onClick={() => {
-                                           const isSelected = squads.home.includes(p.id);
-                                           setSquads({
-                                             ...squads,
-                                             home: isSelected ? squads.home.filter(id => id !== p.id) : [...squads.home, p.id]
-                                           });
-                                         }}
-                                         className={`p-3 rounded-xl border text-[10px] font-bold cursor-pointer transition-all ${squads.home.includes(p.id) ? 'bg-amber-500/10 border-amber-500/50 text-white' : 'bg-white/5 border-white/5 text-slate-500'}`}
-                                       >
-                                          {p.user?.fullName}
-                                       </div>
-                                     ))}
+                       ) : (
+                          <>
+                             {/* Toss Section */}
+                             <section className="space-y-5">
+                                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Toss Details</p>
+                                <form onSubmit={submitToss} className="space-y-4">
+                                   <select 
+                                      required
+                                      className="input-field !py-4 !bg-white/5 border-white/10"
+                                      value={tossForm.tossWinnerTeamId}
+                                      onChange={e => setTossForm({...tossForm, tossWinnerTeamId: e.target.value})}
+                                   >
+                                      <option value="">Select Winning Team</option>
+                                      <option value={getId(selectedMatch.homeTeamId)}>{selectedMatch.homeTeamId?.name}</option>
+                                      <option value={getId(selectedMatch.awayTeamId)}>{selectedMatch.awayTeamId?.name}</option>
+                                   </select>
+                                   <div className="grid grid-cols-2 gap-3">
+                                      <button 
+                                        type="button"
+                                        onClick={() => setTossForm({...tossForm, tossDecision: 'bat'})}
+                                        className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${tossForm.tossDecision === 'bat' ? 'bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-900/20' : 'bg-white/5 text-slate-600 border-white/5 hover:border-white/10'}`}
+                                      >Bat First</button>
+                                      <button 
+                                        type="button"
+                                        onClick={() => setTossForm({...tossForm, tossDecision: 'bowl'})}
+                                        className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${tossForm.tossDecision === 'bowl' ? 'bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-900/20' : 'bg-white/5 text-slate-600 border-white/5 hover:border-white/10'}`}
+                                      >Bowl First</button>
+                                   </div>
+                                   <button className="w-full btn-primary !py-4 shadow-lg shadow-amber-900/10">Save Toss Results</button>
+                                </form>
+                             </section>
+      
+                             {/* Squad Selection Section */}
+                             <section className="space-y-5 pt-10 border-t border-white/10">
+                                <div className="flex justify-between items-center">
+                                   <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Squad Selection</p>
+                                   <button 
+                                     onClick={saveSquads}
+                                     className="text-[8px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20"
+                                   >Commit Squads</button>
+                                </div>
+                                
+                                {loadingPlayers ? (
+                                  <div className="py-10 text-center opacity-30"><p className="text-[10px] font-black uppercase">Loading Rosters...</p></div>
+                                ) : (
+                                  <div className="grid grid-cols-2 gap-6">
+                                     {/* Home Squad */}
+                                     <div className="space-y-4">
+                                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest text-center">{selectedMatch.homeTeamId?.shortCode} Squad</p>
+                                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                                           {teamPlayers.filter(p => String(p.team?._id || p.team?.id) === getId(selectedMatch.homeTeamId)).map(p => (
+                                             <div 
+                                               key={p.id}
+                                               onClick={() => {
+                                                 const isSelected = squads.home.includes(p.id);
+                                                 setSquads({
+                                                   ...squads,
+                                                   home: isSelected ? squads.home.filter(id => id !== p.id) : [...squads.home, p.id]
+                                                 });
+                                               }}
+                                               className={`p-3 rounded-xl border text-[10px] font-bold cursor-pointer transition-all ${squads.home.includes(p.id) ? 'bg-amber-500/10 border-amber-500/50 text-white' : 'bg-white/5 border-white/5 text-slate-500'}`}
+                                             >
+                                                {p.user?.fullName}
+                                             </div>
+                                           ))}
+                                        </div>
+                                        <p className="text-[8px] text-center font-black text-slate-600">{squads.home.length} SELECTED</p>
+                                     </div>
+      
+                                     {/* Away Squad */}
+                                     <div className="space-y-4">
+                                        <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest text-center">{selectedMatch.awayTeamId?.shortCode} Squad</p>
+                                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                                           {teamPlayers.filter(p => String(p.team?._id || p.team?.id) === getId(selectedMatch.awayTeamId)).map(p => (
+                                             <div 
+                                               key={p.id}
+                                               onClick={() => {
+                                                 const isSelected = squads.away.includes(p.id);
+                                                 setSquads({
+                                                   ...squads,
+                                                   away: isSelected ? squads.away.filter(id => id !== p.id) : [...squads.away, p.id]
+                                                 });
+                                               }}
+                                               className={`p-3 rounded-xl border text-[10px] font-bold cursor-pointer transition-all ${squads.away.includes(p.id) ? 'bg-amber-500/10 border-amber-500/50 text-white' : 'bg-white/5 border-white/5 text-slate-500'}`}
+                                             >
+                                                {p.user?.fullName}
+                                             </div>
+                                           ))}
+                                        </div>
+                                        <p className="text-[8px] text-center font-black text-slate-600">{squads.away.length} SELECTED</p>
+                                     </div>
                                   </div>
-                                  <p className="text-[8px] text-center font-black text-slate-600">{squads.home.length} SELECTED</p>
-                               </div>
-
-                               {/* Away Squad */}
-                               <div className="space-y-4">
-                                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest text-center">{selectedMatch.awayTeamId?.shortCode} Squad</p>
-                                  <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                                     {teamPlayers.filter(p => String(p.team?._id || p.team?.id) === getId(selectedMatch.awayTeamId)).map(p => (
-                                       <div 
-                                         key={p.id}
-                                         onClick={() => {
-                                           const isSelected = squads.away.includes(p.id);
-                                           setSquads({
-                                             ...squads,
-                                             away: isSelected ? squads.away.filter(id => id !== p.id) : [...squads.away, p.id]
-                                           });
-                                         }}
-                                         className={`p-3 rounded-xl border text-[10px] font-bold cursor-pointer transition-all ${squads.away.includes(p.id) ? 'bg-amber-500/10 border-amber-500/50 text-white' : 'bg-white/5 border-white/5 text-slate-500'}`}
-                                       >
-                                          {p.user?.fullName}
-                                       </div>
-                                     ))}
-                                  </div>
-                                  <p className="text-[8px] text-center font-black text-slate-600">{squads.away.length} SELECTED</p>
-                               </div>
-                            </div>
-                          )}
-                       </section>
-
-                       {/* Officials Section */}
-                       <section className="space-y-5 pt-10 border-t border-white/10">
-                          <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Assign Officials</p>
-                          <form onSubmit={assignOfficials} className="space-y-4">
-                             <input 
-                               placeholder="Main Umpire 24-char System ID" 
-                               className="input-field !py-4 !text-xs font-mono !bg-white/5 border-white/10"
-                               value={officials.umpireId}
-                               onChange={e => setOfficials({...officials, umpireId: e.target.value})}
-                            />
-                            <input 
-                               placeholder="Leg Umpire 24-char System ID" 
-                               className="input-field !py-4 !text-xs font-mono !bg-white/5 border-white/10"
-                               value={officials.legUmpireId}
-                               onChange={e => setOfficials({...officials, legUmpireId: e.target.value})}
-                            />
-                            <button className="w-full btn-secondary !py-4 !text-[10px] !bg-indigo-600/10 !border-indigo-500/20 !text-indigo-400 hover:!bg-indigo-500 hover:!text-white shadow-lg shadow-indigo-900/10">Authorize Official Crew</button>
-                          </form>
-                       </section>
-
-                       <div className="pt-10 border-t border-white/10">
-                          <button 
-                            onClick={() => updateStatus(getId(selectedMatch), 'live')}
-                            className="w-full py-6 rounded-3xl bg-emerald-600 text-white text-xs font-black uppercase tracking-[0.3em] hover:bg-emerald-500 transition-all flex items-center justify-center gap-3 shadow-xl shadow-emerald-900/20"
-                          >
-                             <FiZap /> Start Match Session
-                          </button>
-                       </div>
+                                )}
+                             </section>
+      
+                             {/* Officials Section */}
+                             <section className="space-y-5 pt-10 border-t border-white/10">
+                                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Assign Officials</p>
+                                <form onSubmit={assignOfficials} className="space-y-4">
+                                   <input 
+                                     placeholder="Main Umpire 24-char System ID" 
+                                     className="input-field !py-4 !text-xs font-mono !bg-white/5 border-white/10"
+                                     value={officials.umpireId}
+                                     onChange={e => setOfficials({...officials, umpireId: e.target.value})}
+                                  />
+                                  <input 
+                                     placeholder="Leg Umpire 24-char System ID" 
+                                     className="input-field !py-4 !text-xs font-mono !bg-white/5 border-white/10"
+                                     value={officials.legUmpireId}
+                                     onChange={e => setOfficials({...officials, legUmpireId: e.target.value})}
+                                  />
+                                  <button className="w-full btn-secondary !py-4 !text-[10px] !bg-indigo-600/10 !border-indigo-500/20 !text-indigo-400 hover:!bg-indigo-500 hover:!text-white shadow-lg shadow-indigo-900/10">Authorize Official Crew</button>
+                                </form>
+                             </section>
+      
+                             <div className="pt-10 border-t border-white/10">
+                                <button 
+                                  onClick={() => updateStatus(getId(selectedMatch), 'live')}
+                                  className="w-full py-6 rounded-3xl bg-emerald-600 text-white text-xs font-black uppercase tracking-[0.3em] hover:bg-emerald-500 transition-all flex items-center justify-center gap-3 shadow-xl shadow-emerald-900/20"
+                                >
+                                   <FiZap /> Start Match Session
+                                </button>
+                             </div>
+                          </>
+                       )}
 
                        <section className="pt-10 border-t border-white/10">
                           <p className="text-[8px] font-black text-rose-500/50 uppercase tracking-widest mb-4">Admin Override</p>

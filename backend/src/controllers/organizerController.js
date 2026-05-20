@@ -582,6 +582,10 @@ const updateMatchSquads = async (req, res, next) => {
   try {
     const match = await Match.findById(req.params.matchId);
     if (!match) return res.status(404).json({ message: 'Match not found' });
+    
+    if (match.status === 'completed' || match.status === 'abandoned') {
+      return res.status(400).json({ message: 'Cannot modify squads of a completed or abandoned match' });
+    }
 
     const { homeSquad, awaySquad } = req.body;
     if (homeSquad) match.homeSquad = homeSquad;
@@ -739,6 +743,10 @@ const updateToss = async (req, res, next) => {
       return res.status(404).json({ message: 'Match not found' });
     }
 
+    if (match.status === 'completed' || match.status === 'abandoned') {
+      return res.status(400).json({ message: 'Cannot modify toss details of a completed or abandoned match' });
+    }
+
     const { tossWinnerTeamId, tossDecision } = req.body;
     match.tossWinnerTeamId = tossWinnerTeamId;
     match.tossDecision = tossDecision;
@@ -768,6 +776,10 @@ const assignOfficials = async (req, res, next) => {
     const match = await Match.findById(req.params.matchId);
     if (!match) {
       return res.status(404).json({ message: 'Match not found' });
+    }
+
+    if (match.status === 'completed' || match.status === 'abandoned') {
+      return res.status(400).json({ message: 'Cannot assign officials to a completed or abandoned match' });
     }
 
     const { umpireId, legUmpireId } = req.body;
