@@ -96,7 +96,9 @@ const PlayerDashboardPage = () => {
                    </div>
                    
                    <div className="text-center mb-6">
-                      <p className="text-lg font-black text-emerald-400 font-mono tracking-tighter">{m.scorecard?.text || '0/0 (0.0)'}</p>
+                      <p className="text-lg font-black text-emerald-400 font-mono tracking-tighter">
+                         {m.status === 'live' || m.status === 'completed' ? (m.scorecard?.text || '0/0 (0.0)') : m.status.toUpperCase()}
+                      </p>
                    </div>
 
                    <div className="flex justify-between items-center pt-6 border-t border-white/5">

@@ -77,12 +77,36 @@ export const PlayerSyncProvider = ({ children }) => {
 
     socket.joinPlayer(user.id);
 
-    const handleUpdate = () => loadAll();
+    const handleUpdate = (data) => {
+      if (data && data.type === 'score' && data.matchId && data.scorecard) {
+        setData(prev => {
+          const updateArray = (arr) => arr.map(m => {
+            if (String(m.id || m._id) === String(data.matchId)) {
+              return { 
+                ...m, 
+                ...data.match,
+                scorecard: data.scorecard,
+                currentRuns: data.match?.currentRuns || data.scorecard.runs,
+                currentWickets: data.match?.currentWickets || data.scorecard.wickets,
+              };
+            }
+            return m;
+          });
+          return {
+            ...prev,
+            matches: updateArray(prev.matches),
+            liveMatches: updateArray(prev.liveMatches),
+            schedule: updateArray(prev.schedule)
+          };
+        });
+      }
+      loadAll();
+    };
     
     // Listen for global match updates and player-specific updates
     socket.onLiveUpdate(handleUpdate);
-    socket.on('notification:global', handleUpdate);
-    socket.on('notification:players', handleUpdate);
+    socket.on('notification:global', () => loadAll());
+    socket.on('notification:players', () => loadAll());
 
     return () => {
       socket.offLiveUpdate(handleUpdate);
