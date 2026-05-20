@@ -4,6 +4,7 @@ import api from '../services/api';
 import socket from '../services/socket';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiActivity, FiShield, FiMessageSquare, FiTrendingUp, FiClock, FiTarget } from 'react-icons/fi';
+import ProfessionalScorecard from '../components/Scorecard/ProfessionalScorecard';
 
 const ScorecardPage = () => {
   const { matchId } = useParams();
@@ -240,15 +241,7 @@ const ScorecardPage = () => {
                     exit={{ opacity: 0, y: -20 }}
                     className="space-y-6"
                   >
-                     <div className="surface-panel p-10 bg-mesh border-emerald-500/10">
-                        <h3 className="text-2xl font-black text-white mb-8 italic flex items-center gap-4">
-                           <FiTrendingUp className="text-emerald-500" /> Professional Scorecard
-                        </h3>
-                        <div className="p-20 text-center surface-panel border-dashed opacity-30">
-                           <FiShield className="text-5xl text-slate-500 mx-auto mb-6" />
-                           <p className="text-xs font-black text-slate-500 uppercase tracking-widest leading-loose">Detailed Batting & Bowling analytical breakdown is currently being processed by the platform officials.</p>
-                        </div>
-                     </div>
+                     <ProfessionalScorecard match={match} scorecard={scorecard} events={events} />
                   </motion.div>
                 )}
              </AnimatePresence>

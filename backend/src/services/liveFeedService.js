@@ -334,6 +334,7 @@ const fetchOrganizedMatches = async () => {
       .populate('homeTeamId', 'name shortCode')
       .populate('awayTeamId', 'name shortCode')
       .populate('tossWinnerTeamId', 'name shortCode')
+      .populate('tournamentId', 'name')
       .sort({ scheduledAt: 1 })
       .limit(100)
       .lean();
@@ -344,6 +345,7 @@ const fetchOrganizedMatches = async () => {
       
       return {
         id: String(m._id),
+        tournamentId: m.tournamentId,
         matchNo: m.matchNo,
         status: m.status,
         scheduledAt: m.scheduledAt,
@@ -367,10 +369,12 @@ const fetchOrganizedMatches = async () => {
         currentRuns: m.currentRuns || 0,
         currentWickets: m.currentWickets || 0,
         currentOver: m.currentOver || 0,
-        currentBall: m.currentBall || 0,
         activeStrikerData: m.activeStrikerData,
         activeNonStrikerData: m.activeNonStrikerData,
         activeBowlerData: m.activeBowlerData,
+        scorecard: {
+          text: `${m.currentRuns || 0}/${m.currentWickets || 0} (${m.currentOver || 0}.${m.currentBall || 0})`
+        }
       };
     });
   } catch (err) {
@@ -389,7 +393,10 @@ const fetchMatchDetailsById = async (matchId) => {
     const results = await Promise.all([
       Match.findById(matchId).populate('homeTeamId', 'name shortCode').populate('awayTeamId', 'name shortCode').populate('tossWinnerTeamId', 'name shortCode'),
       require('../models').Scorecard.findOne({ matchId }),
-      require('../models').BallEvent.find({ matchId }).sort({ createdAt: 1 }),
+      require('../models').BallEvent.find({ matchId })
+        .populate({ path: 'strikerId', populate: { path: 'userId', select: 'fullName name' } })
+        .populate({ path: 'bowlerId', populate: { path: 'userId', select: 'fullName name' } })
+        .sort({ createdAt: 1 }),
       require('../models').UmpireDecision.find({ matchId }).sort({ createdAt: 1 }),
     ]);
     dbMatch = results[0];
@@ -420,6 +427,7 @@ const fetchMatchDetailsById = async (matchId) => {
         activeStrikerData: dbMatch.activeStrikerData,
         activeNonStrikerData: dbMatch.activeNonStrikerData,
         activeBowlerData: dbMatch.activeBowlerData,
+        innings: dbMatch.innings || 1,
       },
       scorecard: isApiMatch ? {
         runs: dbMatch.scorecardData?.runs || 0,
@@ -430,6 +438,7 @@ const fetchMatchDetailsById = async (matchId) => {
         runs: scorecard?.runs || 0,
         wickets: scorecard?.wickets || 0,
         overs: scorecard?.overs || 0,
+        summary: scorecard?.summary || {},
         text: `${scorecard?.runs || 0}/${scorecard?.wickets || 0} (${scorecard?.overs || 0})`
       },
       events: events || [],

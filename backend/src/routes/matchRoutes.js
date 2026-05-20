@@ -9,6 +9,7 @@ const {
   toggleLike,
   getPlayerProfile,
   updateMatchStatus,
+  startSecondInnings,
 } = require('../controllers/matchController');
 const { authenticate, authorize } = require('../middleware/auth');
 
@@ -24,5 +25,6 @@ router.post('/:matchId/likes', authenticate, toggleLike);
 router.post('/:matchId/balls', authenticate, authorize('umpire', 'organizer'), addBallEvent);
 router.post('/:matchId/balls/:ballEventId/decisions', authenticate, authorize('umpire', 'organizer'), logUmpireDecision);
 router.patch('/:matchId/status', authenticate, authorize('umpire', 'organizer'), updateMatchStatus);
+router.post('/:matchId/innings2', authenticate, authorize('umpire', 'organizer'), startSecondInnings);
 
 module.exports = router;

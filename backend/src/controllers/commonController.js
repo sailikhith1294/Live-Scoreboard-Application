@@ -380,6 +380,12 @@ const removePlayerFromTeam = async (req, res, next) => {
       return res.status(403).json({ message: 'Unauthorized to remove players from this squad' });
     }
 
+    const playerProfile = await PlayerProfile.findById(profileId);
+    if (playerProfile && team.captainId && String(team.captainId) === String(playerProfile.userId)) {
+      team.captainId = undefined;
+      await team.save();
+    }
+
     await TeamPlayer.deleteOne({ teamId, playerProfileId: profileId });
     
     // Log activity

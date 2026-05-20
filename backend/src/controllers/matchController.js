@@ -58,7 +58,7 @@ const addBallEvent = async (req, res, next) => {
 
     const ball = await BallEvent.create({
       matchId,
-      innings,
+      innings: match.innings || 1,
       overNumber,
       ballNumber,
       batsmanRuns,
@@ -84,7 +84,11 @@ const addBallEvent = async (req, res, next) => {
     scorecard.runs += Number(batsmanRuns) + Number(extras);
     scorecard.wickets += isWicket ? 1 : 0;
     scorecard.extras += Number(extras);
-    scorecard.overs = Number(`${overNumber}.${ballNumber}`);
+    if (Number(ballNumber) === 6) {
+      scorecard.overs = Number(overNumber) + 1;
+    } else {
+      scorecard.overs = Number(`${overNumber}.${ballNumber}`);
+    }
     await scorecard.save();
 
     // REAL WORLD FEATURE: Update Player Stats
@@ -132,7 +136,7 @@ const addBallEvent = async (req, res, next) => {
     match.currentBall = ballNumber;
 
     // BROADCAST FEATURE: Active Player Figures
-    const activeEvents = await BallEvent.find({ matchId, innings: 1 });
+    const activeEvents = await BallEvent.find({ matchId, innings: match.innings || 1 });
     
     const getStats = (pId) => {
       const pEvents = activeEvents.filter(e => String(e.strikerId) === String(pId));
@@ -190,10 +194,15 @@ const addBallEvent = async (req, res, next) => {
 
     const broadcastData = await fetchMatchDetailsById(matchId);
     const io = req.app.get('io');
+    
+    const ballObj = ball.toObject();
+    ballObj.strikerId = sProfile;
+    ballObj.bowlerId = bProfile;
+
     io.to(`match:${matchId}`).emit('score:update', { 
       match: broadcastData.match, 
       scorecard: broadcastData.scorecard, 
-      ball 
+      ball: ballObj 
     });
     io.emit('match:global_update', { 
       type: 'score', 
@@ -350,6 +359,65 @@ const updateMatchStatus = async (req, res, next) => {
   }
 };
 
+const startSecondInnings = async (req, res, next) => {
+  try {
+    const { matchId } = req.params;
+    const match = await Match.findById(matchId);
+    if (!match) return res.status(404).json({ message: 'Match not found' });
+
+    if (!await ensureScoringPermission(match, req.user)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (match.innings !== 1) {
+      return res.status(400).json({ message: 'Match is already past first innings' });
+    }
+
+    const scorecard = await Scorecard.findOne({ matchId });
+    if (!scorecard) return res.status(404).json({ message: 'Scorecard not found' });
+
+    // Backup current stats
+    scorecard.summary = {
+      ...scorecard.summary,
+      innings1: {
+        runs: scorecard.runs,
+        wickets: scorecard.wickets,
+        overs: scorecard.overs,
+        extras: scorecard.extras,
+      }
+    };
+
+    // Reset current stats
+    scorecard.runs = 0;
+    scorecard.wickets = 0;
+    scorecard.overs = 0;
+    scorecard.extras = 0;
+    await scorecard.save();
+
+    match.innings = 2;
+    match.currentRuns = 0;
+    match.currentWickets = 0;
+    match.currentOver = 0;
+    match.currentBall = 0;
+    match.activeStrikerData = null;
+    match.activeNonStrikerData = null;
+    match.activeBowlerData = null;
+    await match.save();
+
+    const broadcastData = await fetchMatchDetailsById(matchId);
+    const io = req.app.get('io');
+    io.to(`match:${matchId}`).emit('score:update', { 
+      match: broadcastData.match, 
+      scorecard: broadcastData.scorecard 
+    });
+    io.emit('match:global_update', { type: 'innings_transition', matchId, match });
+
+    res.json({ match, scorecard });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addBallEvent,
   logUmpireDecision,
@@ -360,4 +428,5 @@ module.exports = {
   toggleLike,
   getPlayerProfile,
   updateMatchStatus,
+  startSecondInnings,
 };

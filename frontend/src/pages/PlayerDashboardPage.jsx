@@ -85,7 +85,7 @@ const PlayerDashboardPage = () => {
                       <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">#{m.matchNo}</p>
                    </div>
                    
-                   <div className="flex justify-between items-center mb-8">
+                   <div className="flex justify-between items-center mb-6">
                       <div className="text-center flex-1">
                          <p className="text-2xl font-black text-white italic">{m.homeTeamId?.shortCode || 'HME'}</p>
                       </div>
@@ -93,6 +93,10 @@ const PlayerDashboardPage = () => {
                       <div className="text-center flex-1">
                          <p className="text-2xl font-black text-white italic">{m.awayTeamId?.shortCode || 'AWY'}</p>
                       </div>
+                   </div>
+                   
+                   <div className="text-center mb-6">
+                      <p className="text-lg font-black text-emerald-400 font-mono tracking-tighter">{m.scorecard?.text || '0/0 (0.0)'}</p>
                    </div>
 
                    <div className="flex justify-between items-center pt-6 border-t border-white/5">

@@ -79,7 +79,7 @@ const ScoringPage = () => {
 
   const getInningsTeams = (m, scorecardObj) => {
     if (!m || !m.tossWinnerTeamId) return { batting: null, bowling: null };
-    const curInnings = scorecardObj?.innings || 1;
+    const curInnings = match?.innings || 1;
     const tossWinnerId = m.tossWinnerTeamId?._id || m.tossWinnerTeamId;
     const homeId = m.homeTeamId?._id || m.homeTeamId;
     const awayId = m.awayTeamId?._id || m.awayTeamId;
@@ -162,7 +162,7 @@ const ScoringPage = () => {
       if (nextBall > 6) { nextOver += 1; nextBall = 1; }
 
       const payload = {
-        innings: 1,
+        innings: match?.innings || 1,
         overNumber: nextOver,
         ballNumber: nextBall,
         batsmanRuns: runs,
@@ -545,6 +545,23 @@ const ScoringPage = () => {
                           <FiCheckCircle className="text-emerald-500 text-lg group-hover:text-white" />
                           Finalize
                        </button>
+                       {match?.innings === 1 && (scorecard?.wickets >= 10 || scorecard?.overs >= match?.oversLimit) && (
+                         <button 
+                           onClick={async () => {
+                             try {
+                               await api.post(`/matches/${matchId}/innings2`);
+                               toast.success('2nd Innings Started');
+                               load();
+                             } catch (err) {
+                               toast.error('Failed to start 2nd innings');
+                             }
+                           }}
+                           className="p-4 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 hover:bg-indigo-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex flex-col items-center gap-2 group sm:col-span-1"
+                         >
+                            <FiActivity className="text-indigo-500 text-lg group-hover:text-white" />
+                            Start 2nd Innings
+                         </button>
+                       )}
                     </div>
                  </section>
 

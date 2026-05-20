@@ -986,10 +986,15 @@ const getOrganizerDashboard = async (req, res, next) => {
 
     const [venues, matches] = await Promise.all([venuesPromise, matchesPromise]);
 
+    const organizerLiveFeed = liveFeed.filter(m => {
+      const tid = m.tournamentId?._id || m.tournamentId;
+      return tournamentIds.includes(String(tid));
+    });
+
     const liveFeedBuckets = {
-      live: liveFeed.filter((m) => m.status === 'live').slice(0, 10),
-      scheduled: liveFeed.filter((m) => m.status === 'scheduled').slice(0, 10),
-      completed: liveFeed.filter((m) => m.status === 'completed').slice(0, 10),
+      live: organizerLiveFeed.filter((m) => m.status === 'live'),
+      scheduled: organizerLiveFeed.filter((m) => m.status === 'scheduled'),
+      completed: organizerLiveFeed.filter((m) => m.status === 'completed'),
     };
 
     res.json({ tournaments, teams, venues, matches, liveFeed: liveFeedBuckets });
@@ -1004,6 +1009,12 @@ const removePlayerFromTeam = async (req, res, next) => {
     const team = await Team.findById(teamId);
     if (!team || (!isAdminUser(req.user) && !hasObjectIdMatch(team.organizerId, req.user.id))) {
       return res.status(403).json({ message: 'Unauthorized team access' });
+    }
+
+    const playerProfile = await PlayerProfile.findById(profileId);
+    if (playerProfile && team.captainId && String(team.captainId) === String(playerProfile.userId)) {
+      team.captainId = undefined;
+      await team.save();
     }
 
     await TeamPlayer.deleteOne({ teamId, playerProfileId: profileId });
