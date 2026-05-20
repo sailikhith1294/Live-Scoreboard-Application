@@ -34,6 +34,27 @@ const buildOtpMessage = ({ otp, purpose }) => {
 };
 
 const sendEmailOtp = async ({ email, otp, purpose }) => {
+  const resendKey = process.env.RESEND_API_KEY;
+
+  if (resendKey) {
+    const axios = require('axios');
+    const from = process.env.SMTP_FROM || 'onboarding@resend.dev';
+    
+    await axios.post('https://api.resend.com/emails', {
+      from: `CREASE <${from}>`,
+      to: [email],
+      subject: 'CREASE OTP Verification',
+      text: buildOtpMessage({ otp, purpose }),
+    }, {
+      headers: {
+        'Authorization': `Bearer ${resendKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return;
+  }
+
+  // Fallback to original SMTP
   const mailer = getTransporter();
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
