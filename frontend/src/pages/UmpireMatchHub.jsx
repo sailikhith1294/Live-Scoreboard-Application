@@ -32,12 +32,15 @@ const UmpireMatchHub = () => {
   const fetchSquadPlayers = async (homeId, awayId) => {
     setLoadingPlayers(true);
     try {
-      const { data } = await api.get('/organizer/players');
-      const players = data.filter(p => 
-        String(p.team?._id || p.team?.id) === String(homeId) || 
-        String(p.team?._id || p.team?.id) === String(awayId)
-      );
-      setTeamPlayers(players);
+      const [homeRes, awayRes] = await Promise.all([
+         api.get(`/common/teams/${homeId}/players`),
+         api.get(`/common/teams/${awayId}/players`)
+      ]);
+      
+      const homePlayers = homeRes.data.map(p => ({ ...p, team: { _id: homeId }, user: { fullName: p.userId?.name } }));
+      const awayPlayers = awayRes.data.map(p => ({ ...p, team: { _id: awayId }, user: { fullName: p.userId?.name } }));
+      
+      setTeamPlayers([...homePlayers, ...awayPlayers]);
     } catch (err) {
       // toast.error('Failed to load team rosters');
     } finally {

@@ -415,6 +415,8 @@ const fetchMatchDetailsById = async (matchId) => {
         tossDecision: dbMatch.tossDecision,
         oversLimit: dbMatch.oversLimit,
         powerplayOvers: dbMatch.powerplayOvers,
+        homeSquad: dbMatch.homeSquad,
+        awaySquad: dbMatch.awaySquad,
         activeStrikerData: dbMatch.activeStrikerData,
         activeNonStrikerData: dbMatch.activeNonStrikerData,
         activeBowlerData: dbMatch.activeBowlerData,

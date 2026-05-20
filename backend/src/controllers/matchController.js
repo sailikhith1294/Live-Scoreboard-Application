@@ -44,6 +44,18 @@ const addBallEvent = async (req, res, next) => {
       umpireDecision,
     } = req.body;
 
+    let scorecard = await Scorecard.findOne({ matchId });
+    if (!scorecard) {
+      scorecard = await Scorecard.create({ matchId });
+    }
+
+    const lastOver = scorecard.overs || 0;
+    const oversLimit = match.oversLimit || 20;
+
+    if (lastOver >= oversLimit) {
+      return res.status(400).json({ message: `Innings complete. Reached limit of ${oversLimit} overs.` });
+    }
+
     const ball = await BallEvent.create({
       matchId,
       innings,
@@ -67,11 +79,6 @@ const addBallEvent = async (req, res, next) => {
         decisionType: umpireDecision.decisionType,
         remarks: umpireDecision.remarks || null,
       });
-    }
-
-    let scorecard = await Scorecard.findOne({ matchId });
-    if (!scorecard) {
-      scorecard = await Scorecard.create({ matchId });
     }
 
     scorecard.runs += Number(batsmanRuns) + Number(extras);

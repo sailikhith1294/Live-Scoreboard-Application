@@ -37,29 +37,35 @@ const ScoringPage = () => {
 
   const overLimit = match?.format === 'T20' ? 4 : match?.format === 'ODI' ? 10 : 20;
 
-  const renderPlayerOption = (p) => {
+  const renderPlayerOption = (p, teamKey) => {
     const isOut = outPlayerIds.has(String(p.id));
     if (isOut) return null;
     
+    const squad = match?.[`${teamKey}Squad`] || [];
+    const isSub = squad.length > 0 && !squad.includes(p.id);
+
     // Check if player is already striker/non-striker to prevent duplicates
     const isActive = (String(p.id) === String(strikerId) || String(p.id) === String(nonStrikerId));
     
     return (
-      <option key={p.id} value={p.id} disabled={isActive}>
-        {p.userId?.name} ({p.role?.toUpperCase() || 'PLY'})
+      <option key={p.id} value={p.id} disabled={isActive || isSub}>
+        {p.userId?.name} {isSub ? '(SUB)' : `(${p.role?.toUpperCase() || 'PLY'})`}
       </option>
     );
   };
 
-  const renderBowlerOption = (p) => {
+  const renderBowlerOption = (p, teamKey) => {
     const balls = getBowlerBalls(p.id);
     const overs = Math.floor(balls / 6);
     const remainingBalls = balls % 6;
     const isFinished = overs >= overLimit;
 
+    const squad = match?.[`${teamKey}Squad`] || [];
+    const isSub = squad.length > 0 && !squad.includes(p.id);
+
     return (
-      <option key={p.id} value={p.id} disabled={isFinished}>
-        {p.userId?.name} ({p.role?.toUpperCase() || 'BOWL'}) - {overs}.{remainingBalls} Ov {isFinished ? '(QUOTA FULL)' : ''}
+      <option key={p.id} value={p.id} disabled={isFinished || isSub}>
+        {p.userId?.name} {isSub ? '(SUB)' : `(${p.role?.toUpperCase() || 'BOWL'}) - ${overs}.${remainingBalls} Ov`} {isFinished ? '(QUOTA FULL)' : ''}
       </option>
     );
   };
@@ -137,8 +143,15 @@ const ScoringPage = () => {
       return;
     }
 
+    const lastOver = scorecard?.overs || 0;
+    const matchOversLimit = match?.oversLimit || 20;
+
+    if (lastOver >= matchOversLimit) {
+      toast.error(`Innings complete. Reached limit of ${matchOversLimit} overs.`, { icon: '🛑' });
+      return;
+    }
+
     try {
-      const lastOver = scorecard?.overs || 0;
       const over = Math.floor(lastOver);
       const ball = Math.round((lastOver - over) * 10);
       
@@ -345,9 +358,9 @@ const ScoringPage = () => {
                        >
                           <option value="">Facing</option>
                           {String(battingTeamId) === String(match.homeTeamId?._id || match.homeTeamId) ? (
-                              rosters.home.map(p => renderPlayerOption(p))
+                              rosters.home.map(p => renderPlayerOption(p, 'home'))
                            ) : (
-                              rosters.away.map(p => renderPlayerOption(p))
+                              rosters.away.map(p => renderPlayerOption(p, 'away'))
                            )}
                        </select>
                     </div>
@@ -374,9 +387,9 @@ const ScoringPage = () => {
                        >
                           <option value="">Other End</option>
                           {String(battingTeamId) === String(match.homeTeamId?._id || match.homeTeamId) ? (
-                              rosters.home.map(p => renderPlayerOption(p))
+                              rosters.home.map(p => renderPlayerOption(p, 'home'))
                            ) : (
-                              rosters.away.map(p => renderPlayerOption(p))
+                              rosters.away.map(p => renderPlayerOption(p, 'away'))
                            )}
                        </select>
                     </div>
@@ -393,9 +406,9 @@ const ScoringPage = () => {
                     >
                        <option value="">Select Bowler</option>
                        {String(bowlingTeamId) === String(match.homeTeamId?._id || match.homeTeamId) ? (
-                           rosters.home.map(p => renderBowlerOption(p))
+                           rosters.home.map(p => renderBowlerOption(p, 'home'))
                         ) : (
-                           rosters.away.map(p => renderBowlerOption(p))
+                           rosters.away.map(p => renderBowlerOption(p, 'away'))
                         )}
                     </select>
                  </div>

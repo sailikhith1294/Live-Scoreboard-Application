@@ -427,7 +427,7 @@ const OrganizerDashboardPage = () => {
                          setMatchForm(p => ({ ...p, tournamentId: tId }));
                          if (!tId) return;
                          // Fetch leaderboard data
-                         api.get(`/common/leaderboard/${tId}`).then(({data}) => {
+                         api.get(`/common/tournaments/${tId}/leaderboard`).then(({data}) => {
                            setLeaderboard(data);
                            toast.success('Standings synchronized');
                          }).catch(() => toast.error('Leaderboard sync failed'));
