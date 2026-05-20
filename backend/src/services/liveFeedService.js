@@ -388,6 +388,9 @@ const fetchOrganizedMatches = async () => {
         activeNonStrikerData: m.activeNonStrikerData,
         activeBowlerData: m.activeBowlerData,
         scorecard: {
+          runs: currentRuns,
+          wickets: currentWickets,
+          overs: sc?.overs || `${currentOver}.${currentBall}`,
           text: `${currentRuns}/${currentWickets} (${sc?.overs || `${currentOver}.${currentBall}`})`
         }
       };

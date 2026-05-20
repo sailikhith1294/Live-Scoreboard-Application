@@ -58,7 +58,7 @@ const LiveScoresDashboard = ({ liveMatches: propsMatches }) => {
                   <p className="text-5xl font-black text-white italic tracking-tighter">
                      {m.scorecard?.runs || m.currentRuns || 0}<span className="text-emerald-500">/</span>{m.scorecard?.wickets || m.currentWickets || 0}
                   </p>
-                  <p className="text-lg text-slate-500 font-black italic">({m.scorecard?.overs || m.currentOver || 0}.{m.scorecard?.ball || m.currentBall || 0})</p>
+                  <p className="text-lg text-slate-500 font-black italic">({m.scorecard?.overs ?? `${m.currentOver || 0}.${m.currentBall || 0}`})</p>
                </div>
                {m.tossWinnerTeamId && (
                   <p className="mt-4 text-[10px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20 self-start">
