@@ -176,6 +176,7 @@ const requestSignupOtp = async (req, res, next) => {
     return res.json({
       message: `OTP sent to your email`,
       fallback: delivery?.fallback || false,
+      debug_otp: delivery?.fallback ? otp : undefined,
     });
   } catch (error) {
     return res.status(502).json({ message: error.message || 'Failed to send OTP' });
@@ -243,6 +244,7 @@ const requestLoginOtp = async (req, res, next) => {
     return res.json({
       message: 'OTP sent to your email',
       fallback: delivery?.fallback || false,
+      debug_otp: delivery?.fallback ? otp : undefined,
     });
   } catch (error) {
     return res.status(502).json({ message: error.message || 'Failed to send OTP' });
