@@ -225,7 +225,7 @@ const OrganizerTeamsPage = () => {
                               <div className="min-w-0">
                                  <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-[0.2em] mb-1">Active Authority</p>
                                  <p className="text-base font-black text-white italic tracking-tight truncate leading-none">
-                                    {playerRoster.find(p => String(getId(p.team)) === String(getId(team)))?.user?.fullName || 'Captain Designated'}
+                                    {playerRoster.find(p => String(getId(p.user)) === String(getId(team.captainId)))?.user?.fullName || 'Captain Designated'}
                                  </p>
                               </div>
                            </div>
@@ -305,7 +305,7 @@ const OrganizerTeamsPage = () => {
                   <div className="flex justify-between items-start mb-4">
                      <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/40" />
-                        {dashboard.teams.some(t => String(t.captainId) === String(p.user?._id || p.user?.id)) && (
+                        {dashboard.teams.some(t => String(getId(t.captainId)) === String(getId(p.user))) && (
                           <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-[8px] font-black text-amber-500 uppercase tracking-widest">Captain</span>
                         )}
                      </div>
