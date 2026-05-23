@@ -128,7 +128,9 @@ const ScoringPage = () => {
     socket.emit('match:join', matchId);
     const onScoreUpdate = ({ scorecard: updated, ball }) => {
       setScorecard(updated);
-      setEvents((prev) => [ball, ...prev]);
+      if (ball) {
+        setEvents((prev) => [ball, ...prev]);
+      }
     };
     socket.on('score:update', onScoreUpdate);
     return () => {

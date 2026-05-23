@@ -33,7 +33,7 @@ const ScorecardPage = () => {
         ...prev,
         match: update.match,
         scorecard: update.scorecard,
-        events: [update.ball, ...prev.events]
+        events: update.ball ? [update.ball, ...prev.events] : prev.events
       }));
     };
 
