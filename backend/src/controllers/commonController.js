@@ -296,32 +296,22 @@ const joinTeamByInviteCode = async (req, res, next) => {
       status: req.user.role === 'player' ? 'active' : 'bench'
     });
 
-    // If user is not yet a player, create promotion request
-    if (req.user.role !== 'player') {
-      const request = await PromotionRequest.create({
-        userId: req.user.id,
-        requestedRole: 'player',
-        message: `Requested entry to ${team.name}. Promotion advised by Captain ${team.captainId?.fullName || 'N/A'} and Organizer ${team.organizerId?.fullName}.`,
-        advisedBy: team.organizerId?._id || team.organizerId,
-        status: 'pending'
-      });
-
-      // Admin notification
+    // Auto-promote viewer to player upon using a valid invite code
+    if (req.user.role === 'viewer') {
+      const userDoc = await User.findById(req.user.id);
+      if (userDoc) {
+        userDoc.role = 'player';
+        await userDoc.save();
+        req.user.role = 'player';
+      }
+      
+      // Notify Admin of auto-promotion
       await Notification.create({
         userId: null,
         scope: 'admin',
-        title: 'New Player Promotion Request',
-        message: `${req.user.fullName} joined ${team.name} and requested player promotion.`,
-        type: 'promotion_request'
+        title: 'Player Auto-Promoted',
+        message: `${req.user.fullName} was auto-promoted to Player after joining ${team.name}.`,
       });
-
-      const io = req.app.get('io');
-      if (io) {
-        io.to('admin:global').emit('admin:update', { 
-          type: 'promotion_requested', 
-          data: { request, user: req.user, teamName: team.name } 
-        });
-      }
     }
     
     // Notify Organizer
