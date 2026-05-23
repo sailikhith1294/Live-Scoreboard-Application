@@ -27,7 +27,7 @@ const playerProfileSchema = new mongoose.Schema(
     },
     playerRole: {
       type: String,
-      enum: ['batsman', 'bowler', 'all-rounder', 'wicket-keeper'],
+      enum: ['batsman', 'batter', 'bowler', 'all-rounder', 'wicket-keeper'],
     },
     availabilityStatus: { type: String, enum: ['available', 'unavailable'], default: 'available' },
     careerRuns: { type: Number, default: 0 },
@@ -199,7 +199,7 @@ leaderboardSchema.index({ tournamentId: 1, teamId: 1 }, { unique: true });
 
 const notificationSchema = new mongoose.Schema(
   {
-    scope: { type: String, enum: ['global', 'team', 'player'], default: 'global' },
+    scope: { type: String, enum: ['global', 'team', 'player', 'admin'], default: 'global' },
     title: { type: String, required: true },
     message: { type: String, required: true },
     isRead: { type: Boolean, default: false },
