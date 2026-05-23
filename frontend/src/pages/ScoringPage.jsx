@@ -314,8 +314,20 @@ const ScoringPage = () => {
                          style={{ width: `${((scorecard?.overs || 0) / (match.oversLimit || 20)) * 100}%` }} 
                        />
                     </div>
-                 </div>
-              </div>
+                  </div>
+                  {match?.innings === 2 && scorecard?.summary?.innings1 && (
+                     <div className="mt-3 flex flex-wrap items-center justify-center sm:justify-end gap-3">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Target:</span>
+                        <span className="text-sm font-black text-white italic">
+                           {scorecard.summary.innings1.runs + 1}
+                        </span>
+                        <span className="text-[10px] font-black text-indigo-400 ml-2 uppercase tracking-widest">1st Inn:</span>
+                        <span className="text-xs font-black text-indigo-400 italic">
+                           {scorecard.summary.innings1.runs}/{scorecard.summary.innings1.wickets} <span className="text-[9px] text-slate-500 font-bold">({scorecard.summary.innings1.overs} OV)</span>
+                        </span>
+                     </div>
+                  )}
+               </div>
               <div className="flex items-center gap-1 bg-white/5 p-2 rounded-3xl border border-white/10">
                  <div className="px-8 py-4 rounded-2xl bg-emerald-500 text-black shadow-lg shadow-emerald-500/20">
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Runs</p>

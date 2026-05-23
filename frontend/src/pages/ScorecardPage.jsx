@@ -105,6 +105,19 @@ const ScorecardPage = () => {
                         <p className="text-lg font-bold text-slate-400 italic">
                            {scorecard?.overs ? `Overs ${scorecard.overs}` : isLive ? 'Innings Starting' : (match?.result || match?.providerStatus || 'Match Completed')}
                         </p>
+                        {match?.innings === 2 && scorecard?.summary?.innings1 && (
+                           <div className="mt-4 flex flex-wrap justify-center items-center gap-3 bg-white/5 inline-flex mx-auto px-4 py-2 rounded-full border border-white/10">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target:</span>
+                              <span className="text-sm font-black text-white italic">
+                                 {scorecard.summary.innings1.runs + 1}
+                              </span>
+                              <span className="text-slate-600 font-black px-1">•</span>
+                              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">1st Inn:</span>
+                              <span className="text-xs font-black text-indigo-400 italic">
+                                 {scorecard.summary.innings1.runs}/{scorecard.summary.innings1.wickets} <span className="text-[9px] text-slate-500 font-bold">({scorecard.summary.innings1.overs})</span>
+                              </span>
+                           </div>
+                        )}
                      </div>
                   )}
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-4">{match?.venue || 'Live Stadium'}</p>
