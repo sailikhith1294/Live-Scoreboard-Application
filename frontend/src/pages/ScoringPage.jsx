@@ -79,7 +79,7 @@ const ScoringPage = () => {
 
   const getInningsTeams = (m, scorecardObj) => {
     if (!m || !m.tossWinnerTeamId) return { batting: null, bowling: null };
-    const curInnings = match?.innings || 1;
+    const curInnings = m.innings || 1;
     const tossWinnerId = m.tossWinnerTeamId?._id || m.tossWinnerTeamId;
     const homeId = m.homeTeamId?._id || m.homeTeamId;
     const awayId = m.awayTeamId?._id || m.awayTeamId;
@@ -126,8 +126,14 @@ const ScoringPage = () => {
   useEffect(() => {
     load();
     socket.emit('match:join', matchId);
-    const onScoreUpdate = ({ scorecard: updated, ball }) => {
+    const onScoreUpdate = ({ scorecard: updated, ball, match: updatedMatch }) => {
       setScorecard(updated);
+      if (updatedMatch) {
+        setMatch(updatedMatch);
+        const teams = getInningsTeams(updatedMatch, updated);
+        setBattingTeamId(teams.batting);
+        setBowlingTeamId(teams.bowling);
+      }
       if (ball) {
         setEvents((prev) => [ball, ...prev]);
       }
@@ -553,6 +559,9 @@ const ScoringPage = () => {
                              try {
                                await api.post(`/matches/${matchId}/innings2`);
                                toast.success('2nd Innings Started');
+                               setStrikerId('');
+                               setNonStrikerId('');
+                               setBowlerId('');
                                load();
                              } catch (err) {
                                toast.error('Failed to start 2nd innings');
