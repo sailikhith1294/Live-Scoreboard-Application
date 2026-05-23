@@ -349,7 +349,10 @@ const ScoringPage = () => {
                  <div className="surface-panel p-10 text-center border-dashed border-2 flex flex-col items-center justify-center min-h-[300px] bg-emerald-500/[0.02] border-emerald-500/20 mb-8">
                     <FiCheckCircle className="text-7xl mb-6 text-emerald-500" />
                     <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter">Match Finalized</h3>
-                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mt-2">Scoring operations have concluded</p>
+                    {match.result && (
+                       <p className="text-xl font-black text-emerald-400 uppercase italic mt-4">{match.result}</p>
+                    )}
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Scoring operations have concluded</p>
                  </div>
               ) : match.status === 'delayed' ? (
                  <div className="surface-panel p-10 text-center border-dashed border-2 flex flex-col items-center justify-center min-h-[300px] bg-amber-500/[0.02] border-amber-500/20 mb-8">

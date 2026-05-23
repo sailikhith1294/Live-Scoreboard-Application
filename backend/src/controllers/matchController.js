@@ -188,6 +188,59 @@ const addBallEvent = async (req, res, next) => {
       };
     }
 
+    if (match.innings === 2 && scorecard.summary?.innings1) {
+      const target = scorecard.summary.innings1.runs + 1;
+      const currentScore = scorecard.runs;
+      const wickets = scorecard.wickets;
+      
+      const { Team } = require('../models');
+      const tossWinnerId = match.tossWinnerTeamId;
+      const homeId = match.homeTeamId;
+      const awayId = match.awayTeamId;
+      
+      let battingTeamId, bowlingTeamId;
+      if (String(tossWinnerId) === String(homeId)) {
+         battingTeamId = match.tossDecision === 'bat' ? awayId : homeId;
+         bowlingTeamId = match.tossDecision === 'bat' ? homeId : awayId;
+      } else {
+         battingTeamId = match.tossDecision === 'bat' ? homeId : awayId;
+         bowlingTeamId = match.tossDecision === 'bat' ? awayId : homeId;
+      }
+
+      let isMatchOver = false;
+      let winnerId = null;
+      let resultType = 'normal';
+      let resultText = '';
+
+      if (currentScore >= target) {
+        isMatchOver = true;
+        winnerId = battingTeamId;
+        const wicketsLeft = 10 - wickets;
+        const batTeam = await Team.findById(battingTeamId);
+        resultText = `${batTeam?.name || 'Batting Team'} won by ${wicketsLeft} wickets`;
+      } 
+      else if (wickets >= 10 || scorecard.overs >= match.oversLimit) {
+        isMatchOver = true;
+        if (currentScore < target - 1) {
+          winnerId = bowlingTeamId;
+          const runDiff = target - 1 - currentScore;
+          const bowlTeam = await Team.findById(bowlingTeamId);
+          resultText = `${bowlTeam?.name || 'Bowling Team'} won by ${runDiff} runs`;
+        } else if (currentScore === target - 1) {
+          winnerId = null;
+          resultType = 'tie';
+          resultText = 'Match Tied';
+        }
+      }
+
+      if (isMatchOver) {
+        match.status = 'completed';
+        match.winnerId = winnerId;
+        match.resultType = resultType;
+        match.result = resultText;
+      }
+    }
+
     await match.save();
 
     await logActivity(req.user.id, 'MATCH_ADD_BALL_EVENT', { matchId, ballEventId: ball.id });

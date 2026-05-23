@@ -126,6 +126,7 @@ const matchSchema = new mongoose.Schema(
     format: { type: String },
     winnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
     resultType: { type: String, enum: ['normal', 'tie', 'no_result', 'abandoned'], default: 'normal' },
+    result: { type: String },
     activeStrikerData: { type: Object }, // { id, name, runs, balls }
     activeNonStrikerData: { type: Object }, // { id, name, runs, balls }
     activeBowlerData: { type: Object }, // { id, name, overs, runs, wickets }
