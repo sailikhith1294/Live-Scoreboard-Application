@@ -35,6 +35,25 @@ const buildOtpMessage = ({ otp, purpose }) => {
 
 const sendEmailOtp = async ({ email, otp, purpose }) => {
   const resendKey = process.env.RESEND_API_KEY;
+  const brevoKey = process.env.BREVO_API_KEY;
+
+  if (brevoKey) {
+    const axios = require('axios');
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@crease.com';
+    
+    await axios.post('https://api.brevo.com/v3/smtp/email', {
+      sender: { email: from, name: "CREASE" },
+      to: [{ email: email }],
+      subject: 'CREASE OTP Verification',
+      textContent: buildOtpMessage({ otp, purpose })
+    }, {
+      headers: {
+        'api-key': brevoKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    return;
+  }
 
   if (resendKey) {
     const axios = require('axios');
