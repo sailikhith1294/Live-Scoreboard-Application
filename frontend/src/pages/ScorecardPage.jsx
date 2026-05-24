@@ -45,12 +45,6 @@ const ScorecardPage = () => {
     };
   }, [matchId]);
 
-  if (loading) return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="h-12 w-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
-
   const { match, scorecard, events, decisions } = data;
   const status = String(match?.status || '').toLowerCase();
   const isScheduled = status === 'scheduled';
@@ -62,6 +56,12 @@ const ScorecardPage = () => {
       setActiveTab('summary');
     }
   }, [isCompleted, activeTab]);
+
+  if (loading) return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="h-12 w-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <div className="space-y-8 animate-slide-up">
