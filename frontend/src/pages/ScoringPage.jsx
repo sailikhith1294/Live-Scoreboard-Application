@@ -72,6 +72,7 @@ const ScoringPage = () => {
   };
 
   const [showWicketOptions, setShowWicketOptions] = useState(false);
+  const [pendingWicketType, setPendingWicketType] = useState(null);
   const [activeExtra, setActiveExtra] = useState('none'); // none, wide, no-ball, leg-bye, bye
   const [freeHit, setFreeHit] = useState(false);
   
@@ -495,6 +496,37 @@ const ScoringPage = () => {
                           >
                              <FiAlertCircle /> WICKET dismissal
                           </button>
+                       ) : pendingWicketType ? (
+                          <div className="space-y-4">
+                             <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black text-rose-500 uppercase">Runs before {pendingWicketType}</span>
+                                <button onClick={() => setPendingWicketType(null)} className="text-[10px] font-black text-slate-500 hover:text-white uppercase">Back</button>
+                             </div>
+                             <div className="grid grid-cols-3 gap-3">
+                                {[0, 1, 2, 3, 4, 5].map(runs => (
+                                   <button 
+                                     key={runs}
+                                     onClick={() => {
+                                        let exRuns = 0;
+                                        let batRuns = runs;
+                                        if (activeExtra === 'wide') {
+                                           exRuns = 1 + runs; batRuns = 0;
+                                        } else if (activeExtra === 'no-ball') {
+                                           exRuns = 1; batRuns = runs;
+                                        } else if (activeExtra === 'leg-bye' || activeExtra === 'bye') {
+                                           exRuns = runs; batRuns = 0;
+                                        }
+                                        registerBall(batRuns, exRuns, true, activeExtra, pendingWicketType);
+                                        setPendingWicketType(null);
+                                        setActiveExtra('none');
+                                     }}
+                                     className="py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-black text-white hover:bg-rose-500 hover:text-white transition-all uppercase"
+                                   >
+                                      {runs}
+                                   </button>
+                                ))}
+                             </div>
+                          </div>
                        ) : (
                           <div className="space-y-4">
                              <div className="flex items-center justify-between">
@@ -505,7 +537,18 @@ const ScoringPage = () => {
                                 {['Bowled', 'Caught', 'LBW', 'Run Out', 'Stumped', 'Others'].map(type => (
                                    <button 
                                      key={type}
-                                     onClick={() => registerBall(0, 0, true, 'none', type)}
+                                     onClick={() => {
+                                        if (type === 'Run Out') {
+                                           setPendingWicketType(type);
+                                        } else {
+                                           let exRuns = 0;
+                                           if (activeExtra === 'wide' || activeExtra === 'no-ball') {
+                                              exRuns = 1;
+                                           }
+                                           registerBall(0, exRuns, true, activeExtra, type);
+                                           setActiveExtra('none');
+                                        }
+                                     }}
                                      className="py-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black text-rose-500 hover:bg-rose-500 hover:text-white transition-all uppercase"
                                    >
                                       {type}
