@@ -505,7 +505,6 @@ const EnhancedDashboard = () => {
     if (!DASHBOARD_AUTO_REFRESH) return;
 
     let cancelled = false;
-    let timeoutId;
 
     const refreshLive = async () => {
       if (cancelled || livePollInFlightRef.current) return;
@@ -518,20 +517,10 @@ const EnhancedDashboard = () => {
       }
     };
 
-    const scheduleNext = () => {
-      if (cancelled) return;
-      const delay = getLiveRefreshInterval(stats.liveMatches.length);
-      timeoutId = setTimeout(async () => {
-        await refreshLive();
-        scheduleNext();
-      }, delay);
-    };
-
-    refreshLive().finally(scheduleNext);
+    refreshLive();
 
     return () => {
       cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [stats.liveMatches.length]);
 
@@ -546,11 +535,9 @@ const EnhancedDashboard = () => {
     };
 
     refreshScheduled();
-    const intervalId = setInterval(refreshScheduled, SCHEDULED_REFRESH_MS);
 
     return () => {
       cancelled = true;
-      clearInterval(intervalId);
     };
   }, []);
 

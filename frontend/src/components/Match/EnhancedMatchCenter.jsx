@@ -885,13 +885,8 @@ const EnhancedMatchCenter = () => {
     refreshBallByBall();
     refreshScorecardAndPlayers();
 
-    const ballIntervalId = setInterval(refreshBallByBall, 3000);
-    const scoreIntervalId = setInterval(refreshScorecardAndPlayers, 9000);
-
     return () => {
       disposed = true;
-      clearInterval(ballIntervalId);
-      clearInterval(scoreIntervalId);
     };
   }, [match?.status, matchId]);
 

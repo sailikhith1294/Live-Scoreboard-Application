@@ -207,11 +207,9 @@ const EnhancedLiveTicker = () => {
     };
 
     refreshTickerData();
-    const intervalId = setInterval(refreshTickerData, 5000);
 
     return () => {
       disposed = true;
-      clearInterval(intervalId);
     };
   }, [match?.status, matchId]);
 

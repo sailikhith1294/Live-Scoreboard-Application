@@ -26,6 +26,7 @@ const ScoringPage = () => {
 
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [selectedWinnerId, setSelectedWinnerId] = useState('');
+  const [calculatedResult, setCalculatedResult] = useState('');
 
   const outPlayerIds = new Set(
     events.filter(e => e.isWicket).map(e => String(e.strikerId?._id || e.strikerId))
@@ -705,6 +706,7 @@ const ScoringPage = () => {
                 <FiCheckCircle className="text-5xl text-emerald-500 mx-auto mb-4" />
                 <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">Finalize Match</h2>
                 <p className="text-xs text-slate-400 mt-2">End the live scoring session and officially declare the winner.</p>
+                {calculatedResult && <p className="text-lg font-black text-emerald-400 mt-4">{calculatedResult}</p>}
               </div>
 
               <div className="space-y-6">
@@ -744,7 +746,7 @@ const ScoringPage = () => {
                   <button 
                     onClick={() => {
                       const finalWinnerId = selectedWinnerId === 'draw' ? null : selectedWinnerId;
-                      updateStatus('completed', 'Match finalized by umpire', finalWinnerId);
+                      updateStatus('completed', calculatedResult || 'Match finalized by umpire', finalWinnerId);
                     }}
                     className="flex-1 py-4 rounded-2xl bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
                   >

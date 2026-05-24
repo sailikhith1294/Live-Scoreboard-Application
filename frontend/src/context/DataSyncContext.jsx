@@ -60,13 +60,7 @@ export const DataSyncProvider = ({ children }) => {
     // Initial data sync (non-blocking)
     setTimeout(() => syncAllData(), 100);
 
-    // Set up periodic sync
-    const syncInterval = setInterval(() => {
-      syncAllData();
-    }, 60000); // Sync every minute
-
     return () => {
-      clearInterval(syncInterval);
       socket.offLiveUpdate(handleLiveUpdate);
     };
   }, []);

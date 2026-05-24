@@ -57,6 +57,12 @@ const ScorecardPage = () => {
   const isLive = status === 'live';
   const isCompleted = status === 'completed';
 
+  useEffect(() => {
+    if (isCompleted && activeTab === 'commentary') {
+      setActiveTab('summary');
+    }
+  }, [isCompleted, activeTab]);
+
   return (
     <div className="space-y-8 animate-slide-up">
       <div className="flex justify-start">
@@ -102,10 +108,17 @@ const ScorecardPage = () => {
                         <h1 className="text-6xl font-black text-white italic tracking-tighter">
                            {scorecard?.runs || 0}<span className="text-emerald-500">/</span>{scorecard?.wickets || 0}
                         </h1>
-                        <p className="text-lg font-bold text-slate-400 italic">
-                           {scorecard?.overs ? `Overs ${scorecard.overs}` : isLive ? 'Innings Starting' : (match?.result || match?.providerStatus || 'Match Completed')}
-                        </p>
-                        {match?.innings === 2 && scorecard?.summary?.innings1 && (
+                        {isCompleted ? (
+                           <div className="mt-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 inline-block shadow-lg shadow-emerald-500/5">
+                              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em] mb-1">Match Result</p>
+                              <p className="text-xl sm:text-2xl font-black text-white italic">{match?.result || match?.providerStatus || 'Match Completed'}</p>
+                           </div>
+                        ) : (
+                           <p className="text-lg font-bold text-slate-400 italic">
+                              {scorecard?.overs ? `Overs ${scorecard.overs}` : isLive ? 'Innings Starting' : 'Match Scheduled'}
+                           </p>
+                        )}
+                        {match?.innings === 2 && scorecard?.summary?.innings1 && !isCompleted && (
                            <div className="mt-4 flex flex-wrap justify-center items-center gap-3 bg-white/5 inline-flex mx-auto px-4 py-2 rounded-full border border-white/10">
                               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target:</span>
                               <span className="text-sm font-black text-white italic">
@@ -135,7 +148,7 @@ const ScorecardPage = () => {
 
          <div className="relative z-10 flex gap-1 p-1 bg-white/5 backdrop-blur-xl border-t border-white/5">
             {[
-                { id: 'commentary', label: 'Match Feed', icon: FiMessageSquare },
+                ...(!isCompleted ? [{ id: 'commentary', label: 'Match Feed', icon: FiMessageSquare }] : []),
                 { id: 'summary', label: 'Scorecard', icon: FiActivity }
              ].map(tab => (
                <button

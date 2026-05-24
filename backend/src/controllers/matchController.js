@@ -386,6 +386,7 @@ const updateMatchStatus = async (req, res, next) => {
 
     match.status = status;
     if (winnerId) match.winnerId = winnerId;
+    if (note) match.result = note;
     await match.save();
 
     // Log the event
